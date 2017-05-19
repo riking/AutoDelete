@@ -2,11 +2,12 @@ package main
 
 import "fmt"
 import (
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"github.com/riking/AutoDelete"
-)
+	"net/http"
 
+	"github.com/riking/AutoDelete"
+	"gopkg.in/yaml.v2"
+)
 
 func main() {
 	var conf autodelete.Config
@@ -25,4 +26,26 @@ func main() {
 		fmt.Println("bot token must be specified")
 	}
 
+	b := autodelete.New(conf)
+
+	err = b.ConnectDiscord()
+	if err != nil {
+		fmt.Println("connect error:", err)
+		return
+	}
+
+	errs := b.LoadChannelConfigs()
+	if len(errs) > 0 {
+		fmt.Println("channel config errors:")
+		for _, v := range errs {
+			fmt.Println(v)
+		}
+	}
+
+	b.LoadAllBacklogs()
+
+	fmt.Printf("url: %s%s\n", conf.HTTP.Public, "/discord_auto_delete/oauth/start")
+	http.HandleFunc("/discord_auto_delete/oauth/start", b.HTTPOAuthStart)
+	http.HandleFunc("/discord_auto_delete/oauth/callback", b.HTTPOAuthCallback)
+	http.ListenAndServe(conf.HTTP.Listen, nil)
 }

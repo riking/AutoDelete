@@ -1,6 +1,7 @@
 package autodelete
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -24,19 +25,11 @@ type ManagedChannel struct {
 	MessageLiveTime time.Duration
 	MaxMessages     int
 	// if false, need to check channel history for messages
-	isStarted    bool
+	isStarted    chan struct{}
 	liveMessages []smallMessage
 }
 
-type managedChannelMarshal struct {
-	ID            string `yaml:"id"`
-	GuildID       string `yaml:"guild_id"`
-	ConfMessageID string `yaml:"conf_message_id"`
-	LiveTime      time.Duration `yaml:"live_time"`
-	MaxMessages   int `yaml:"max_messages"`
-}
-
-func (c *ManagedChannel) MarshalYAML() (interface{}, error) {
+func (c *ManagedChannel) Export() managedChannelMarshal {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -45,10 +38,10 @@ func (c *ManagedChannel) MarshalYAML() (interface{}, error) {
 		GuildID:     c.Channel.GuildID,
 		LiveTime:    c.MessageLiveTime,
 		MaxMessages: c.MaxMessages,
-	}, nil
+	}
 }
 
-func LoadChannel(b *Bot, chConf managedChannelMarshal) (*ManagedChannel, error) {
+func InitChannel(b *Bot, chConf managedChannelMarshal) (*ManagedChannel, error) {
 	disCh, err := b.s.Channel(chConf.ID)
 	if err != nil {
 		return nil, err
@@ -58,7 +51,7 @@ func LoadChannel(b *Bot, chConf managedChannelMarshal) (*ManagedChannel, error) 
 		Channel:         disCh,
 		MessageLiveTime: chConf.LiveTime,
 		MaxMessages:     chConf.MaxMessages,
-		isStarted:       false,
+		isStarted:       make(chan struct{}),
 		liveMessages:    nil,
 	}, nil
 }
@@ -68,17 +61,57 @@ func (c *ManagedChannel) LoadBacklog() error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("backlog for", c.Channel.ID, "len =", len(msgs))
+
+	defer c.bot.QueueReap(c) // requires mutex unlocked
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.liveMessages = make([]smallMessage, len(msgs))
 	for i, v := range msgs {
-		c.liveMessages[i].MessageID = v.ID
-		c.liveMessages[i].PostedAt, err = v.Timestamp.Parse()
+		c.liveMessages[len(msgs) - 1 - i].MessageID = v.ID
+		c.liveMessages[len(msgs) - 1 - i].PostedAt, err = v.Timestamp.Parse()
 		if err != nil {
 			panic("Timestamp format change")
 		}
 	}
-	c.isStarted = true
+
+	// mark as ready for AddMessage()
+	select {
+	case <-c.isStarted:
+	default:
+		close(c.isStarted)
+	}
+	return nil
+}
+
+func (b *Bot) LoadAllBacklogs() {
+	b.mu.RLock()
+	for _, v := range b.channels {
+		go v.LoadBacklog()
+	}
+	b.mu.RUnlock()
+}
+
+func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
+	<-c.isStarted
+
+	needReap := false
+	c.mu.Lock()
+	if len(c.liveMessages) == 0 {
+		needReap = true
+	} else if len(c.liveMessages) == c.MaxMessages {
+		needReap = true
+	}
+	c.liveMessages = append(c.liveMessages, smallMessage{
+		MessageID: m.ID,
+		PostedAt:  time.Now(),
+	})
+	c.mu.Unlock()
+
+	if needReap {
+		fmt.Println("channel", c.Channel.ID, "needs reap")
+		c.bot.QueueReap(c)
+	}
 }
 
 func (c *ManagedChannel) Enabled() bool {
@@ -112,9 +145,10 @@ func (c *ManagedChannel) GetNextDeletionTime(ifNone time.Time) time.Time {
 	return ifNone
 }
 
-func (c *ManagedChannel) Reap() (error) {
+func (c *ManagedChannel) Reap() error {
 	msgs := c.collectMessagesToDelete()
 	if len(msgs) == 0 {
+		fmt.Println("no messages to clean")
 		return nil
 	}
 
@@ -125,7 +159,7 @@ func (c *ManagedChannel) Reap() (error) {
 	return c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs)
 }
 
-func (c *ManagedChannel) collectMessagesToDelete() ([]string) {
+func (c *ManagedChannel) collectMessagesToDelete() []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
