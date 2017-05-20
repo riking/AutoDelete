@@ -68,8 +68,8 @@ func (c *ManagedChannel) LoadBacklog() error {
 	defer c.mu.Unlock()
 	c.liveMessages = make([]smallMessage, len(msgs))
 	for i, v := range msgs {
-		c.liveMessages[len(msgs) - 1 - i].MessageID = v.ID
-		c.liveMessages[len(msgs) - 1 - i].PostedAt, err = v.Timestamp.Parse()
+		c.liveMessages[len(msgs)-1-i].MessageID = v.ID
+		c.liveMessages[len(msgs)-1-i].PostedAt, err = v.Timestamp.Parse()
 		if err != nil {
 			panic("Timestamp format change")
 		}
@@ -177,6 +177,11 @@ func (c *ManagedChannel) collectMessagesToDelete() []string {
 			toDelete = append(toDelete, c.liveMessages[0].MessageID)
 			c.liveMessages = c.liveMessages[1:]
 		}
+	}
+
+	bulkDeleteCutoff := time.Now().Add(-(14 - 1) * 24 * time.Hour)
+	for len(toDelete) > 0 && toDelete[0].PostedAt.Before(bulkDeleteCutoff) {
+		toDelete = toDelete[1:]
 	}
 
 	return toDelete
