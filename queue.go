@@ -107,12 +107,15 @@ func (q *reapQueue) WaitForNext() *ManagedChannel {
 start:
 	it := q.items.Peek()
 	if it == nil {
+		fmt.Println("[reap] waiting for insertion")
 		q.cond.Wait()
 		goto start
 	}
 	now := time.Now()
 	if it.nextReap.After(now) {
-		go q.timer.Reset(it.nextReap.Sub(now) + 2*time.Millisecond)
+		waitTime := it.nextReap.Sub(now)
+		fmt.Println("[reap] sleeping for ", waitTime-(waitTime%time.Second))
+		go q.timer.Reset(waitTime + 2*time.Millisecond)
 		q.cond.Wait()
 		goto start
 	}
