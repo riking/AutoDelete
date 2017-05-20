@@ -115,7 +115,7 @@ start:
 	if it.nextReap.After(now) {
 		waitTime := it.nextReap.Sub(now)
 		fmt.Println("[reap] sleeping for ", waitTime-(waitTime%time.Second))
-		go q.timer.Reset(waitTime + 2*time.Millisecond)
+		q.timer.Reset(waitTime + 2*time.Millisecond)
 		q.cond.Wait()
 		goto start
 	}
