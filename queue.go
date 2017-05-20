@@ -140,6 +140,7 @@ func (b *Bot) reapWorker() {
 		err := ch.Reap()
 		if err != nil {
 			fmt.Printf("Reaper error for %s: %v\n", ch.Channel.ID, err)
+			b.LoadBacklog()
 		}
 		b.QueueReap(ch)
 	}
