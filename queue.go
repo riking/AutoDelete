@@ -22,7 +22,7 @@ func (pq priorityQueue) Len() int { return len(pq) }
 
 func (pq priorityQueue) Less(i, j int) bool {
 	// We want Pop to give us the highest, not lowest, priority so we use greater than here.
-	return pq[i].nextReap.Before(pq[j].nextReap)
+	return pq[i].nextReap.After(pq[j].nextReap)
 }
 
 func (pq priorityQueue) Swap(i, j int) {
