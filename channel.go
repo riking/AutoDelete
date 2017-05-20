@@ -68,8 +68,8 @@ func (c *ManagedChannel) LoadBacklog() error {
 	defer c.mu.Unlock()
 	c.liveMessages = make([]smallMessage, len(msgs))
 	for i, v := range msgs {
-		c.liveMessages[len(msgs) - 1 - i].MessageID = v.ID
-		c.liveMessages[len(msgs) - 1 - i].PostedAt, err = v.Timestamp.Parse()
+		c.liveMessages[len(msgs)-1-i].MessageID = v.ID
+		c.liveMessages[len(msgs)-1-i].PostedAt, err = v.Timestamp.Parse()
 		if err != nil {
 			panic("Timestamp format change")
 		}
@@ -132,7 +132,7 @@ func (c *ManagedChannel) SetMaxMessages(max int) {
 	c.MaxMessages = max
 }
 
-func (c *ManagedChannel) GetNextDeletionTime(ifNone time.Time) time.Time {
+func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -142,7 +142,7 @@ func (c *ManagedChannel) GetNextDeletionTime(ifNone time.Time) time.Time {
 	if len(c.liveMessages) > 0 {
 		return c.liveMessages[0].PostedAt.Add(c.MessageLiveTime)
 	}
-	return ifNone
+	return time.Now().Add(24 * time.Hour)
 }
 
 func (c *ManagedChannel) Reap() error {
