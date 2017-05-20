@@ -35,9 +35,9 @@ func (c *ManagedChannel) Export() managedChannelMarshal {
 
 	return managedChannelMarshal{
 		ID:          c.Channel.ID,
-		GuildID:     c.Channel.GuildID,
 		LiveTime:    c.MessageLiveTime,
 		MaxMessages: c.MaxMessages,
+		// ConfMessageID TODO
 	}
 }
 

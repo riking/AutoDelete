@@ -16,7 +16,7 @@ type Bot struct {
 	s  *discordgo.Session
 	me *discordgo.User
 
-	mu     sync.RWMutex
+	mu       sync.RWMutex
 	channels map[string]*ManagedChannel
 
 	reaper *reapQueue
@@ -24,9 +24,9 @@ type Bot struct {
 
 func New(c Config) *Bot {
 	b := &Bot{
-		Config: c,
+		Config:   c,
 		channels: make(map[string]*ManagedChannel),
-		reaper: newReapQueue(),
+		reaper:   newReapQueue(),
 	}
 	go b.reapWorker()
 	return b
@@ -48,7 +48,6 @@ type Config struct {
 
 type managedChannelMarshal struct {
 	ID            string        `yaml:"id"`
-	GuildID       string        `yaml:"guild_id"`
 	ConfMessageID string        `yaml:"conf_message_id"`
 	LiveTime      time.Duration `yaml:"live_time"`
 	MaxMessages   int           `yaml:"max_messages"`
@@ -161,6 +160,7 @@ func (b *Bot) loadChannel(channelID string) error {
 		return err
 	}
 
+	conf.ID = channelID
 	fmt.Println("loading channel", channelID)
 	mCh, err := InitChannel(b, conf)
 	if err != nil {
