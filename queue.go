@@ -9,8 +9,8 @@ import (
 
 // An Item is something we manage in a priority queue.
 type pqItem struct {
-	ch *ManagedChannel
-	nextReap time.Time    // The priority of the item in the queue.
+	ch       *ManagedChannel
+	nextReap time.Time // The priority of the item in the queue.
 	// The index is needed by update and is maintained by the heap.Interface methods.
 	index int // The index of the item in the heap.
 }
@@ -64,7 +64,7 @@ func newReapQueue() *reapQueue {
 	var locker sync.Mutex
 	q := &reapQueue{
 		items: new(priorityQueue),
-		cond: sync.NewCond(&locker),
+		cond:  sync.NewCond(&locker),
 		timer: time.NewTimer(0),
 	}
 	go func() {
@@ -92,7 +92,7 @@ func (q *reapQueue) Update(ch *ManagedChannel, t time.Time) {
 	}
 	if idx == -1 {
 		heap.Push(q.items, &pqItem{
-			ch: ch,
+			ch:       ch,
 			nextReap: t,
 		})
 	} else {
@@ -107,12 +107,15 @@ func (q *reapQueue) WaitForNext() *ManagedChannel {
 start:
 	it := q.items.Peek()
 	if it == nil {
+		fmt.Println("[reap] waiting for insertion")
 		q.cond.Wait()
 		goto start
 	}
 	now := time.Now()
 	if it.nextReap.After(now) {
-		go q.timer.Reset(it.nextReap.Sub(now) + 2*time.Millisecond)
+		waitTime := it.nextReap.Sub(now)
+		fmt.Println("[reap] sleeping for ", waitTime-(waitTime%time.Second))
+		go q.timer.Reset(waitTime + 2*time.Millisecond)
 		q.cond.Wait()
 		goto start
 	}
@@ -125,7 +128,7 @@ start:
 func (b *Bot) QueueReap(c *ManagedChannel) {
 	var reapTime time.Time
 
-	reapTime = c.GetNextDeletionTime(reapTime)
+	reapTime = c.GetNextDeletionTime()
 	fmt.Println("got reap queue for", c.Channel.ID, c.Channel.Name, reapTime)
 	b.reaper.Update(c, reapTime)
 }
@@ -137,6 +140,8 @@ func (b *Bot) reapWorker() {
 		err := ch.Reap()
 		if err != nil {
 			fmt.Printf("Reaper error for %s: %v\n", ch.Channel.ID, err)
+			ch.LoadBacklog()
 		}
+		b.QueueReap(ch)
 	}
 }

@@ -35,9 +35,9 @@ func (c *ManagedChannel) Export() managedChannelMarshal {
 
 	return managedChannelMarshal{
 		ID:          c.Channel.ID,
-		GuildID:     c.Channel.GuildID,
 		LiveTime:    c.MessageLiveTime,
 		MaxMessages: c.MaxMessages,
+		// ConfMessageID TODO
 	}
 }
 
@@ -132,7 +132,7 @@ func (c *ManagedChannel) SetMaxMessages(max int) {
 	c.MaxMessages = max
 }
 
-func (c *ManagedChannel) GetNextDeletionTime(ifNone time.Time) time.Time {
+func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -142,7 +142,7 @@ func (c *ManagedChannel) GetNextDeletionTime(ifNone time.Time) time.Time {
 	if len(c.liveMessages) > 0 {
 		return c.liveMessages[0].PostedAt.Add(c.MessageLiveTime)
 	}
-	return ifNone
+	return time.Now().Add(24 * time.Hour)
 }
 
 func (c *ManagedChannel) Reap() error {
