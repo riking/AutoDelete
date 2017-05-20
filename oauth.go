@@ -46,6 +46,10 @@ func (b *Bot) HTTPOAuthCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad form", 400)
 		return
 	}
+	if r.Form.Get("code") == "" {
+		http.Error(w, "no authcode", 400)
+		return
+	}
 
 	t, err := b.oauthConfig().Exchange(r.Context(), r.Form.Get("code"))
 	if err != nil && strings.Contains(err.Error(), "invalid_client") {
