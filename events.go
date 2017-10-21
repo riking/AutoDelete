@@ -2,10 +2,11 @@ package autodelete
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"strings"
 )
 
 func (b *Bot) ConnectDiscord() error {

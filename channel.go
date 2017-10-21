@@ -181,10 +181,5 @@ func (c *ManagedChannel) collectMessagesToDelete() []string {
 		}
 	}
 
-	bulkDeleteCutoff := time.Now().Add(-(14 - 1) * 24 * time.Hour)
-	for len(toDelete) > 0 && toDelete[0].PostedAt.Before(bulkDeleteCutoff) {
-		toDelete = toDelete[1:]
-	}
-
 	return toDelete
 }
