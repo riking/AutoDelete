@@ -51,7 +51,7 @@ func (b *Bot) HandleMentions(s *discordgo.Session, m *discordgo.MessageCreate) {
 		fun, ok := commands[cmd]
 		if ok {
 			fmt.Println("got command:", split)
-			go fun(b, m.Message)
+			go fun(b, m.Message, split[2:])
 			return
 		}
 	}

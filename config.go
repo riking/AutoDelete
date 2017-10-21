@@ -91,11 +91,15 @@ func (b *Bot) SaveChannelConfig(channelID string) error {
 		return nil
 	}
 
-	by, err := yaml.Marshal(manCh.Export())
+	return b.saveChannelConfig(manCh.Export())
+}
+
+func (b *Bot) saveChannelConfig(conf managedChannelMarshal) error {
+	by, err := yaml.Marshal(conf)
 	if err != nil {
 		panic(err)
 	}
-	fileName := fmt.Sprintf(pathChannelConfig, channelID)
+	fileName := fmt.Sprintf(pathChannelConfig, conf.ID)
 	f, err := os.Create(fileName)
 	if err != nil {
 		return err
@@ -106,6 +110,20 @@ func (b *Bot) SaveChannelConfig(channelID string) error {
 		return err
 	}
 	return nil
+}
+
+// Change the config to the provided one.
+func (b *Bot) setChannelConfig(conf managedChannelMarshal) error {
+	err := b.saveChannelConfig(conf)
+	if err != nil {
+		return err
+	}
+
+	b.mu.Lock()
+	delete(b.channels, conf.ID)
+	b.mu.Unlock()
+
+	return b.loadChannel(conf.ID)
 }
 
 func (b *Bot) LoadChannelConfigs() []error {
