@@ -83,12 +83,15 @@ func (b *Bot) OnChannelCreate(s *discordgo.Session, ch *discordgo.ChannelCreate)
 
 func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
 	fmt.Println("ready")
-	for _, v := range m.Guilds {
-		fmt.Println(v.Channels)
-	}
+	//for _, v := range m.Guilds {
+	//	fmt.Println(v.Channels)
+	//}
 }
 
 func (b *Bot) OnResume(s *discordgo.Session, r *discordgo.Resumed) {
 	fmt.Println("Reconnected!")
-	b.LoadAllBacklogs()
+	go func() {
+		time.Sleep(3 * time.Second)
+		b.LoadAllBacklogs()
+	}()
 }

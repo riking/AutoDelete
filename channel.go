@@ -87,7 +87,9 @@ func (c *ManagedChannel) LoadBacklog() error {
 func (b *Bot) LoadAllBacklogs() {
 	b.mu.RLock()
 	for _, v := range b.channels {
-		go v.LoadBacklog()
+		if v != nil {
+			go v.LoadBacklog()
+		}
 	}
 	b.mu.RUnlock()
 }
