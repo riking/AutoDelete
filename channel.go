@@ -141,7 +141,7 @@ func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	if len(c.liveMessages) > c.MaxMessages {
 		return time.Now()
 	}
-	if len(c.liveMessages) > 0 {
+	if c.MessageLiveTime != 0 && len(c.liveMessages) > 0 {
 		return c.liveMessages[0].PostedAt.Add(c.MessageLiveTime)
 	}
 	return time.Now().Add(24 * time.Hour)
