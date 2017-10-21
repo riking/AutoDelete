@@ -25,7 +25,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 
 	const perm = discordgo.PermissionManageMessages
 
-	apermissions, err := b.s.UserChannelPermissions(m.Author.ID, m.MessageID)
+	apermissions, err := b.s.UserChannelPermissions(m.Author.ID, m.ID)
 	if err != nil {
 		b.s.ChannelMessageSend(m.ChannelID, "could not check your permissions: "+err.Error())
 		return
@@ -61,7 +61,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		MaxMessages:   count,
 	}
 
-	err := b.setChannelConfig(newManagedChannel)
+	err = b.setChannelConfig(newManagedChannel)
 	if err != nil {
 		fmt.Println("Error:", err)
 		b.s.ChannelMessageSend(m.ChannelID, "Encountered error, settings may or may not have saved.\n"+err.Error())
