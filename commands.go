@@ -25,7 +25,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 
 	const perm = discordgo.PermissionManageMessages
 
-	apermissions, err := b.s.UserChannelPermissions(m.Author.ID, m.ID)
+	apermissions, err := b.s.UserChannelPermissions(m.Author.ID, m.ChannelID)
 	if err != nil {
 		b.s.ChannelMessageSend(m.ChannelID, "could not check your permissions: "+err.Error())
 		return
