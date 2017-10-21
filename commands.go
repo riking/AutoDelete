@@ -23,6 +23,18 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 	var count int
 	var anySet bool
 
+	const perm = discordgo.PermissionManageMessages
+
+	apermissions, err := b.s.UserChannelPermissions(m.Author.ID, m.MessageID)
+	if err != nil {
+		b.s.ChannelMessageSend(m.ChannelID, "could not check your permissions: "+err.Error())
+		return
+	}
+	if apermissions&perm == 0 {
+		b.s.ChannelMessageSend(m.ChannelID, "You must have the Manage Messages permission to change AutoDelete settings.")
+		return
+	}
+
 	for _, v := range rest {
 		d, err := time.ParseDuration(v)
 		if err == nil {
