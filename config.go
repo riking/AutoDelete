@@ -159,7 +159,6 @@ func (b *Bot) loadChannel(channelID string) error {
 	fileName := fmt.Sprintf(pathChannelConfig, channelID)
 	f, err := os.Open(fileName)
 	if os.IsNotExist(err) {
-		fmt.Println("no config for", channelID)
 		b.mu.Lock()
 		b.channels[channelID] = nil
 		b.mu.Unlock()
@@ -179,7 +178,6 @@ func (b *Bot) loadChannel(channelID string) error {
 	}
 
 	conf.ID = channelID
-	fmt.Println("loading channel", channelID)
 	mCh, err := InitChannel(b, conf)
 	if err != nil {
 		return err
@@ -190,7 +188,7 @@ func (b *Bot) loadChannel(channelID string) error {
 
 	err = mCh.LoadBacklog()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Loading backlog for", channelID, err)
 		return err
 	}
 	return nil

@@ -55,12 +55,10 @@ func (b *Bot) HandleMentions(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 	}
-	fmt.Println("got mention:", m.Message.Content)
+	fmt.Println("got non-command mention:", m.Message.Content)
 }
 
 func (b *Bot) OnMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-	fmt.Println(m.Message)
-
 	b.mu.RLock()
 	mCh, ok := b.channels[m.Message.ChannelID]
 	b.mu.RUnlock()
@@ -78,8 +76,7 @@ func (b *Bot) OnMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func (b *Bot) OnChannelCreate(s *discordgo.Session, ch *discordgo.ChannelCreate) {
-	fmt.Println("channel create", ch.ID)
-	b.loadChannel(ch.ID)
+	// No action, need a config message
 }
 
 func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
