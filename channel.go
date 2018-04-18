@@ -101,7 +101,7 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 	c.mu.Lock()
 	if len(c.liveMessages) == 0 {
 		needReap = true
-	} else if len(c.liveMessages) == c.MaxMessages {
+	} else if c.MaxMessages > 0 && len(c.liveMessages) == c.MaxMessages {
 		needReap = true
 	}
 	c.liveMessages = append(c.liveMessages, smallMessage{
@@ -138,7 +138,7 @@ func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if len(c.liveMessages) > c.MaxMessages {
+	if c.MaxMessages > 0 && len(c.liveMessages) > c.MaxMessages {
 		return time.Now()
 	}
 	if c.MessageLiveTime != 0 && len(c.liveMessages) > 0 {
