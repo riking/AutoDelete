@@ -1,0 +1,6 @@
+clientid:
+clientsecret:
+bottoken:
+http:
+  listen: "localhost:2202"
+  public: "https://home.riking.org"
