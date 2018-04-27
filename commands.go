@@ -66,6 +66,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		fmt.Println("Error:", err)
 		b.s.ChannelMessageSend(m.ChannelID, "Encountered error, settings may or may not have saved.\n"+err.Error())
 	} else {
+		// TODO - save configuration message ID
 		if duration != 0 && count != 0 {
 			b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will be deleted after %s or %d messages, whichever comes first.", duration, count))
 		} else if duration != 0 {
@@ -74,7 +75,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		} else if count != 0 {
 			b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will be deleted after %d other messages.", count))
 		} else {
-			b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will not be auto-deleted.", count))
+			b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will not be auto-deleted."))
 		}
 	}
 }
