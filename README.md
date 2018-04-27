@@ -12,3 +12,5 @@ The `100` in the start command is the maximum number of live messages in the cha
 The `24h` is a duration after which every message will be deleted. [Acceptable units](https://godoc.org/time#ParseDuration) are `h` for hours, `m` for minutes, `s` for seconds. Durations of a day or longer still need to be specified in hours.
 
 A "voice-text" channel might want a shorter duration, e.g. 1h or 30m, when you just want "immediate" chat with no computer memory.
+
+To turn off the bot, or if you've made a massive mistake, use `@AutoDelete set 0` to turn off auto-deletion.
