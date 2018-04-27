@@ -4,6 +4,8 @@ AutoDelete is a Discord bot that will automatically delete messages from a desig
 
 Add it to your server here: https://home.riking.org/discord_auto_delete/oauth/start
 
+Announcements server: https://discord.gg/FUGn8yE
+
 ## Usage
 
 Create a new "purged" channel where messages will automatically be deleted. Someone with MANAGE_MESSAGES permission (usually an admin) needs to say `@AutoDelete start 100 24h` to start the bot and tell it which channel you are using.
