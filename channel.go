@@ -111,7 +111,8 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 	c.mu.Unlock()
 
 	if needReap {
-		fmt.Println("channel", c.Channel.ID, "needs reap")
+		fmt.Println("channel", c.Channel.ID, "needs reap, new message:")
+		fmt.Println(m)
 		c.bot.QueueReap(c)
 	}
 }

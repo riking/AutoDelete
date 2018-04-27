@@ -72,7 +72,6 @@ func (b *Bot) OnMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	if mCh != nil {
 		mCh.AddMessage(m.Message)
-		fmt.Println(m.Message)
 	}
 }
 
