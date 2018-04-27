@@ -147,18 +147,50 @@ func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	return time.Now().Add(24 * time.Hour)
 }
 
+const errCodeBulkDeleteOld = 50034
+
 func (c *ManagedChannel) Reap() error {
 	msgs := c.collectMessagesToDelete()
 	if len(msgs) == 0 {
 		fmt.Println("no messages to clean")
 		return nil
 	}
+	var err error
 
-	for len(msgs) > 50 {
-		c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs[:50])
-		msgs = msgs[50:]
+nobulk:
+	switch {
+	case true:
+		for len(msgs) > 50 {
+			err := c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs[:50])
+			if rErr, ok := err.(*discordgo.RESTError); ok {
+				if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
+					break nobulk
+				}
+				return err
+			} else if err != nil {
+				return err
+			}
+			msgs = msgs[50:]
+		}
+		err = c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs)
+		if rErr, ok := err.(*discordgo.RESTError); ok {
+			if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
+				break nobulk
+			}
+			return err
+		} else if err != nil {
+			return err
+		}
+		return nil
 	}
-	return c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs)
+	// single delete required
+	for _, msg := range msgs {
+		err = c.bot.s.ChannelMessageDelete(c.Channel.ID, msg)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *ManagedChannel) collectMessagesToDelete() []string {
