@@ -24,6 +24,9 @@ type ManagedChannel struct {
 	// Messages posted to the channel get deleted after
 	MessageLiveTime time.Duration
 	MaxMessages     int
+	ConfMessageID   string
+	// if lower than CriticalMsgSequence, need to send one
+	LastSentUpdate int
 	// if false, need to check channel history for messages
 	isStarted    chan struct{}
 	liveMessages []smallMessage
@@ -34,10 +37,11 @@ func (c *ManagedChannel) Export() managedChannelMarshal {
 	defer c.mu.Unlock()
 
 	return managedChannelMarshal{
-		ID:          c.Channel.ID,
-		LiveTime:    c.MessageLiveTime,
-		MaxMessages: c.MaxMessages,
-		// ConfMessageID TODO
+		ID:             c.Channel.ID,
+		LiveTime:       c.MessageLiveTime,
+		MaxMessages:    c.MaxMessages,
+		LastSentUpdate: c.LastSentUpdate,
+		ConfMessageID:  c.ConfMessageID,
 	}
 }
 
@@ -51,6 +55,8 @@ func InitChannel(b *Bot, chConf managedChannelMarshal) (*ManagedChannel, error) 
 		Channel:         disCh,
 		MessageLiveTime: chConf.LiveTime,
 		MaxMessages:     chConf.MaxMessages,
+		LastSentUpdate:  c.LastSentUpdate,
+		ConfMessageID:   c.ConfMessageID,
 		isStarted:       make(chan struct{}),
 		liveMessages:    nil,
 	}, nil
@@ -68,6 +74,9 @@ func (c *ManagedChannel) LoadBacklog() error {
 	defer c.mu.Unlock()
 	c.liveMessages = make([]smallMessage, len(msgs))
 	for i, v := range msgs {
+		if v.ID == c.ConfMessageID {
+			continue
+		}
 		c.liveMessages[len(msgs)-1-i].MessageID = v.ID
 		c.liveMessages[len(msgs)-1-i].PostedAt, err = v.Timestamp.Parse()
 		if err != nil {
@@ -202,14 +211,18 @@ func (c *ManagedChannel) collectMessagesToDelete() []string {
 
 	if c.MaxMessages > 0 {
 		for len(c.liveMessages) > c.MaxMessages {
-			toDelete = append(toDelete, c.liveMessages[0].MessageID)
+			if c.liveMessages[0].MessageID != c.ConfMessageID {
+				toDelete = append(toDelete, c.liveMessages[0].MessageID)
+			}
 			c.liveMessages = c.liveMessages[1:]
 		}
 	}
 	if c.MessageLiveTime > 0 {
 		cutoff := time.Now().Add(-c.MessageLiveTime)
 		for len(c.liveMessages) > 0 && c.liveMessages[0].PostedAt.Before(cutoff) {
-			toDelete = append(toDelete, c.liveMessages[0].MessageID)
+			if c.liveMessages[0].MessageID != c.ConfMessageID {
+				toDelete = append(toDelete, c.liveMessages[0].MessageID)
+			}
 			c.liveMessages = c.liveMessages[1:]
 		}
 	}

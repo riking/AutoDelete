@@ -47,10 +47,11 @@ type Config struct {
 }
 
 type managedChannelMarshal struct {
-	ID            string        `yaml:"id"`
-	ConfMessageID string        `yaml:"conf_message_id"`
-	LiveTime      time.Duration `yaml:"live_time"`
-	MaxMessages   int           `yaml:"max_messages"`
+	ID             string        `yaml:"id"`
+	ConfMessageID  string        `yaml:"conf_message_id"`
+	LiveTime       time.Duration `yaml:"live_time"`
+	MaxMessages    int           `yaml:"max_messages"`
+	LastSentUpdate int           `yaml:"last_critical_msg"`
 }
 
 const pathChannelConfig = "./data/%s.yml"
