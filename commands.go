@@ -10,8 +10,9 @@ import (
 
 const textHelp = `Commands:
   @AutoDelete set [duration: 30m] [count: 10] - starts this channel for message auto-deletion
-      Duration or message count can be specified as ` + "`-`" + ` to not use that, but at least one must be specified.
-  @AutoDelete help - prints this help message`
+      Duration or message count can be specified as ` + "`-`" + ` to not use that, but at least one must be specified. Use "set 0 0" to disable the bot.
+  @AutoDelete help - prints this help message
+For more help, join the help server: <https://discord.gg/FUGn8yE>`
 
 func CommandHelp(b *Bot, m *discordgo.Message, rest []string) {
 	b.s.ChannelMessageSend(m.ChannelID, textHelp)
@@ -79,8 +80,8 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 }
 
 var commands = map[string]func(b *Bot, m *discordgo.Message, rest []string){
-	"help": CommandHelp,
-	"set":  CommandModify,
-	"start":  CommandModify,
-	"setup":  CommandModify,
+	"help":  CommandHelp,
+	"set":   CommandModify,
+	"start": CommandModify,
+	"setup": CommandModify,
 }
