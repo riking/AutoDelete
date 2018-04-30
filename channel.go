@@ -184,13 +184,18 @@ nobulk:
 		}
 		return nil
 	}
+
 	// single delete required
-	for _, msg := range msgs {
-		err = c.bot.s.ChannelMessageDelete(c.Channel.ID, msg)
-		if err != nil {
-			return err
+	// Spin up a separate goroutine - this could take a while
+	go func() {
+		for _, msg := range msgs {
+			err = c.bot.s.ChannelMessageDelete(c.Channel.ID, msg)
+			if err != nil {
+				fmt.Println("Error in single-message delete:", err, c.Channel.ID, msg)
+			}
 		}
-	}
+		c.bot.QueueReap(c)
+	}()
 	return nil
 }
 
