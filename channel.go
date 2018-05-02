@@ -55,8 +55,8 @@ func InitChannel(b *Bot, chConf managedChannelMarshal) (*ManagedChannel, error) 
 		Channel:         disCh,
 		MessageLiveTime: chConf.LiveTime,
 		MaxMessages:     chConf.MaxMessages,
-		LastSentUpdate:  c.LastSentUpdate,
-		ConfMessageID:   c.ConfMessageID,
+		LastSentUpdate:  chConf.LastSentUpdate,
+		ConfMessageID:   chConf.ConfMessageID,
 		isStarted:       make(chan struct{}),
 		liveMessages:    nil,
 	}, nil

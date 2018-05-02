@@ -36,6 +36,7 @@ type Config struct {
 	ClientID     string `yaml:"clientid"`
 	ClientSecret string `yaml:"clientsecret"`
 	BotToken     string `yaml:"bottoken"`
+	ErrorLogCh   string `yaml:"error_log"`
 	HTTP         struct {
 		Listen string `yaml:"listen"`
 		Public string `yaml:"public"`
