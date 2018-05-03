@@ -74,7 +74,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.liveMessages = make([]smallMessage, 0, len(msgs))
-	for i, v := range msgs {
+	for _, v := range msgs {
 		if v.ID == c.ConfMessageID {
 			continue
 		}
@@ -82,7 +82,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 		if err != nil {
 			panic("Timestamp format change")
 		}
-		if time.IsZero(ts) {
+		if ts.IsZero() {
 			continue
 		}
 		c.liveMessages = append(c.liveMessages, smallMessage{

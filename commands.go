@@ -61,6 +61,8 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		MaxMessages:   count,
 	}
 
+	//var confMessage *discordgo.Message
+
 	err = b.setChannelConfig(newManagedChannel)
 	if err != nil {
 		fmt.Println("Error:", err)
