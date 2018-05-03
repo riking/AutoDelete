@@ -87,12 +87,9 @@ func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
 	}
 
 	go func() {
-		errs := b.LoadChannelConfigs()
-		if len(errs) > 0 {
-			fmt.Println("channel config errors:")
-			for _, v := range errs {
-				fmt.Println(v)
-			}
+		err := b.LoadChannelConfigs()
+		if err != nil {
+			fmt.Println("error loading configs:", err)
 		}
 
 		b.LoadAllBacklogs()

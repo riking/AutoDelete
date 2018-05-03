@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,6 +56,7 @@ type managedChannelMarshal struct {
 	LastSentUpdate int           `yaml:"last_critical_msg"`
 }
 
+const pathChannelConfDir = "./data"
 const pathChannelConfig = "./data/%s.yml"
 
 func (b *Bot) SaveAllChannelConfigs() []error {
@@ -128,33 +130,23 @@ func (b *Bot) setChannelConfig(conf managedChannelMarshal) error {
 	return b.loadChannel(conf.ID)
 }
 
-func (b *Bot) LoadChannelConfigs() []error {
-	var wg sync.WaitGroup
-	var errCh = make(chan error)
-
-	b.s.State.RLock()
-	for _, v := range b.s.State.Guilds {
-		fmt.Println(v)
-		for _, w := range v.Channels {
-			wg.Add(1)
-			go func() {
-				errCh <- b.loadChannel(w.ID)
-				wg.Done()
-			}()
+func (b *Bot) LoadChannelConfigs() error {
+	files, err := ioutil.ReadDir(pathChannelConfDir)
+	if err != nil {
+		return err
+	}
+	for _, v := range files {
+		n := v.Name()
+		if !strings.HasSuffix(n, ".yml") {
+			continue
+		}
+		chID := strings.TrimSuffix(n, ".yml")
+		err = b.loadChannel(chID)
+		if err != nil {
+			fmt.Println("error loading configuration from", n, ":", err)
 		}
 	}
-	b.s.State.RUnlock()
-
-	go func() {
-		wg.Wait()
-		close(errCh)
-	}()
-
-	var errs []error
-	for v := range errCh {
-		errs = append(errs, v)
-	}
-	return errs
+	return nil
 }
 
 func (b *Bot) loadChannel(channelID string) error {
