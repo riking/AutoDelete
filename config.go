@@ -141,6 +141,7 @@ func (b *Bot) LoadChannelConfigs() error {
 			continue
 		}
 		chID := strings.TrimSuffix(n, ".yml")
+		_ = chID
 		// err = b.loadChannel(chID)
 		// if err != nil {
 		//	fmt.Println("error loading configuration from", n, ":", err)
@@ -186,7 +187,8 @@ func (b *Bot) loadChannel(channelID string) error {
 			if rErr, ok := err.(*discordgo.RESTError); ok {
 				if rErr.Message != nil {
 					if rErr.Message.Code == 50001 { // Missing access
-
+					} else if rErr.Message.Code == 50013 { // Missing permissions
+					} else if rErr.Message.Code == 10003 { // Deleted Channel
 					}
 				}
 			}
