@@ -203,7 +203,8 @@ nobulk:
 				fmt.Println("Error in single-message delete:", err, c.Channel.ID, msg)
 			}
 		}
-		c.bot.QueueReap(c)
+		// re-load the backlog in case this surfaced more things to delete
+		c.LoadBacklog()
 	}()
 	return nil
 }
