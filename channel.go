@@ -65,6 +65,7 @@ func InitChannel(b *Bot, chConf managedChannelMarshal) (*ManagedChannel, error) 
 func (c *ManagedChannel) LoadBacklog() error {
 	msgs, err := c.bot.s.ChannelMessages(c.Channel.ID, 100, "", "", "")
 	if err != nil {
+		fmt.Println("could not load backlog for", c.Channel.ID, err)
 		return err
 	}
 	fmt.Println("backlog for", c.Channel.ID, "len =", len(msgs))
@@ -72,16 +73,22 @@ func (c *ManagedChannel) LoadBacklog() error {
 	defer c.bot.QueueReap(c) // requires mutex unlocked
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.liveMessages = make([]smallMessage, len(msgs))
+	c.liveMessages = make([]smallMessage, 0, len(msgs))
 	for i, v := range msgs {
 		if v.ID == c.ConfMessageID {
 			continue
 		}
-		c.liveMessages[len(msgs)-1-i].MessageID = v.ID
-		c.liveMessages[len(msgs)-1-i].PostedAt, err = v.Timestamp.Parse()
+		ts, err := v.Timestamp.Parse()
 		if err != nil {
 			panic("Timestamp format change")
 		}
+		if time.IsZero(ts) {
+			continue
+		}
+		c.liveMessages = append(c.liveMessages, smallMessage{
+			MessageID: v.ID,
+			PostedAt:  ts,
+		})
 	}
 
 	// mark as ready for AddMessage()
