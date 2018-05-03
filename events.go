@@ -80,7 +80,7 @@ func (b *Bot) OnChannelCreate(s *discordgo.Session, ch *discordgo.ChannelCreate)
 }
 
 func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
-	fmt.Println("ready")
+	b.ReportToLogChannel("AutoDelete started.")
 	err := s.UpdateStatus(0, "in the garbage")
 	if err != nil {
 		fmt.Println("error setting game:", err)

@@ -37,7 +37,7 @@ type Config struct {
 	ClientID     string `yaml:"clientid"`
 	ClientSecret string `yaml:"clientsecret"`
 	BotToken     string `yaml:"bottoken"`
-	ErrorLogCh   string `yaml:"error_log"`
+	ErrorLogCh   string `yaml:"errorlog"`
 	HTTP         struct {
 		Listen string `yaml:"listen"`
 		Public string `yaml:"public"`
@@ -58,6 +58,14 @@ type managedChannelMarshal struct {
 
 const pathChannelConfDir = "./data"
 const pathChannelConfig = "./data/%s.yml"
+
+func (b *Bot) ReportToLogChannel(msg string) {
+	_, err := b.s.ChannelMessageSend(b.Config.ErrorLogCh, msg)
+	if err != nil {
+		fmt.Println("error while reporting to error log:", err)
+	}
+	fmt.Println("[LOG]", msg)
+}
 
 func (b *Bot) SaveAllChannelConfigs() []error {
 	var wg sync.WaitGroup
