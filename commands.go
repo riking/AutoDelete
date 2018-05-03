@@ -54,31 +54,36 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		return
 	}
 
+	var confMessage *discordgo.Message
+
+	if duration != 0 && count != 0 {
+		confMessage, err = b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will be deleted after %s or %d messages, whichever comes first.", duration, count))
+	} else if duration != 0 {
+		confMessage, err = b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will be deleted after %s.", duration))
+
+	} else if count != 0 {
+		confMessage, err = b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will be deleted after %d other messages.", count))
+	} else {
+		confMessage, err = b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will not be auto-deleted."))
+	}
+
+	if err != nil {
+		fmt.Println("Error sending config message:", err)
+		b.s.ChannelMessageSend(m.ChannelID, "Encountered error, settings were not changed.\n"+err.Error())
+		return
+	}
+
 	newManagedChannel := managedChannelMarshal{
 		ID:            m.ChannelID,
-		ConfMessageID: m.ID,
+		ConfMessageID: confMessage.ID,
 		LiveTime:      duration,
 		MaxMessages:   count,
 	}
-
-	//var confMessage *discordgo.Message
 
 	err = b.setChannelConfig(newManagedChannel)
 	if err != nil {
 		fmt.Println("Error:", err)
 		b.s.ChannelMessageSend(m.ChannelID, "Encountered error, settings may or may not have saved.\n"+err.Error())
-	} else {
-		// TODO - save configuration message ID
-		if duration != 0 && count != 0 {
-			b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will be deleted after %s or %d messages, whichever comes first.", duration, count))
-		} else if duration != 0 {
-			b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will be deleted after %s.", duration))
-
-		} else if count != 0 {
-			b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will be deleted after %d other messages.", count))
-		} else {
-			b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will not be auto-deleted."))
-		}
 	}
 }
 
