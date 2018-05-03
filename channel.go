@@ -114,14 +114,20 @@ func (b *Bot) LoadAllBacklogs() {
 
 func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 	<-c.isStarted
-
 	needReap := false
+
 	c.mu.Lock()
+	if m.ID == c.ConfMessageID {
+		c.mu.Unlock()
+		return
+	}
+
 	if len(c.liveMessages) == 0 {
 		needReap = true
 	} else if c.MaxMessages > 0 && len(c.liveMessages) == c.MaxMessages {
 		needReap = true
 	}
+
 	c.liveMessages = append(c.liveMessages, smallMessage{
 		MessageID: m.ID,
 		PostedAt:  time.Now(),
@@ -156,6 +162,9 @@ func (c *ManagedChannel) SetMaxMessages(max int) {
 func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if len(c.liveMessages) == 0 {
+		return time.Now().Add(240 * time.Hour)
+	}
 
 	if c.liveMessages[0].MessageID == c.ConfMessageID {
 		c.liveMessages = c.liveMessages[1:]
@@ -163,10 +172,10 @@ func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	if c.MaxMessages > 0 && len(c.liveMessages) > c.MaxMessages {
 		return time.Now()
 	}
-	if c.MessageLiveTime != 0 && len(c.liveMessages) > 0 {
+	if c.MessageLiveTime != 0 {
 		return c.liveMessages[0].PostedAt.Add(c.MessageLiveTime)
 	}
-	return time.Now().Add(24 * time.Hour)
+	return time.Now().Add(240 * time.Hour)
 }
 
 const errCodeBulkDeleteOld = 50034
