@@ -74,7 +74,8 @@ func (c *ManagedChannel) LoadBacklog() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.liveMessages = make([]smallMessage, 0, len(msgs))
-	for _, v := range msgs {
+	for i := len(msgs); i > 0; i-- {
+		v := msgs[i-1]
 		if v.ID == c.ConfMessageID {
 			continue
 		}
