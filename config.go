@@ -141,10 +141,10 @@ func (b *Bot) LoadChannelConfigs() error {
 			continue
 		}
 		chID := strings.TrimSuffix(n, ".yml")
-		err = b.loadChannel(chID)
-		if err != nil {
-			fmt.Println("error loading configuration from", n, ":", err)
-		}
+		// err = b.loadChannel(chID)
+		// if err != nil {
+		//	fmt.Println("error loading configuration from", n, ":", err)
+		// }
 	}
 	return nil
 }
@@ -182,6 +182,15 @@ func (b *Bot) loadChannel(channelID string) error {
 
 	err = mCh.LoadBacklog()
 	if err != nil {
+		/*
+			if rErr, ok := err.(*discordgo.RESTError); ok {
+				if rErr.Message != nil {
+					if rErr.Message.Code == 50001 { // Missing access
+
+					}
+				}
+			}
+		*/
 		fmt.Println("Loading backlog for", channelID, err)
 		return err
 	}
