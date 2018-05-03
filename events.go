@@ -85,18 +85,9 @@ func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
 	if err != nil {
 		fmt.Println("error setting game:", err)
 	}
-
-	go func() {
-		errs := b.LoadChannelConfigs()
-		if len(errs) > 0 {
-			fmt.Println("channel config errors:")
-			for _, v := range errs {
-				fmt.Println(v)
-			}
-		}
-
-		b.LoadAllBacklogs()
-	}()
+	//for _, v := range m.Guilds {
+	//	fmt.Println(v.Channels)
+	//}
 }
 
 func (b *Bot) OnResume(s *discordgo.Session, r *discordgo.Resumed) {
