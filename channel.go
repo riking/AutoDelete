@@ -97,6 +97,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 	case <-c.isStarted:
 	default:
 		close(c.isStarted)
+		fmt.Println("Initialized auto-deletion for", c.Channel.Name, c.Channel.ID)
 	}
 	return nil
 }
@@ -156,6 +157,9 @@ func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if c.liveMessages[0].MessageID == c.ConfMessageID {
+		c.liveMessages = c.liveMessages[1:]
+	}
 	if c.MaxMessages > 0 && len(c.liveMessages) > c.MaxMessages {
 		return time.Now()
 	}
