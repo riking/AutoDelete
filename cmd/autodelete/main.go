@@ -34,16 +34,6 @@ func main() {
 		return
 	}
 
-	errs := b.LoadChannelConfigs()
-	if len(errs) > 0 {
-		fmt.Println("channel config errors:")
-		for _, v := range errs {
-			fmt.Println(v)
-		}
-	}
-
-	b.LoadAllBacklogs()
-
 	fmt.Printf("url: %s%s\n", conf.HTTP.Public, "/discord_auto_delete/oauth/start")
 	http.HandleFunc("/discord_auto_delete/oauth/start", b.HTTPOAuthStart)
 	http.HandleFunc("/discord_auto_delete/oauth/callback", b.HTTPOAuthCallback)
