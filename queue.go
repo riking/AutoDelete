@@ -138,6 +138,9 @@ func (b *Bot) reapWorker() {
 		ch := b.reaper.WaitForNext()
 		fmt.Printf("Reaper starting for %s\n", ch.Channel.ID)
 		err := ch.Reap()
+		if b.handleCriticalPermissionsErrors(ch.Channel.ID, err) {
+			continue
+		}
 		if err != nil {
 			fmt.Printf("Reaper error for %s: %v\n", ch.Channel.ID, err)
 			ch.LoadBacklog()

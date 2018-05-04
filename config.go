@@ -151,6 +151,45 @@ func (b *Bot) setChannelConfig(conf managedChannelMarshal) error {
 	return b.loadChannel(conf.ID)
 }
 
+func (b *Bot) handleCriticalPermissionsErrors(channelID string, srcErr error) bool {
+	if rErr, ok := srcErr.(*discordgo.RESTError); ok && rErr != nil && rErr.Message != nil {
+		shouldRemoveChannel := false
+		shouldNotifyChannel := false
+		var logMsg string
+
+		switch rErr.Message.Code {
+		case discordgo.ErrCodeUnknownChannel, discordgo.ErrCodeMissingAccess:
+			shouldRemoveChannel = true
+			logMsg = fmt.Sprintf("Removed unknown channel ID %s", channelID)
+		case discordgo.ErrCodeMissingPermissions:
+			shouldRemoveChannel = true
+			shouldNotifyChannel = true
+			channelObj, _ := b.s.Channel(channelID)
+			if channelObj != nil {
+				guildObj, _ := b.s.Guild(channelObj.GuildID)
+				if guildObj != nil {
+					logMsg = fmt.Sprintf("AutoDelete disabled from channel #%s (%s) (server %s (%s)) due to missing critical permissions", channelObj.Name, channelID, guildObj.Name, channelObj.GuildID)
+				} else {
+					logMsg = fmt.Sprintf("AutoDelete disabled from channel #%s (%s) (server ID %s) due to missing critical permissions", channelObj.Name, channelID, channelObj.GuildID)
+				}
+			} else {
+				logMsg = fmt.Sprintf("AutoDelete disabled from channel (%s) (server unknown) due to missing critical permissions", channelID)
+			}
+		}
+
+		if shouldRemoveChannel {
+			b.ReportToLogChannel(logMsg)
+			if shouldNotifyChannel {
+				_, err := b.s.ChannelMessageSend(channelID, logMsg)
+				fmt.Println("error reporting removal to channel", channelID, ":", err)
+			}
+			b.deleteChannelConfig(channelID)
+			return true
+		}
+	}
+	return false
+}
+
 func (b *Bot) LoadChannelConfigs() error {
 	files, err := ioutil.ReadDir(pathChannelConfDir)
 	if err != nil {
@@ -164,42 +203,8 @@ func (b *Bot) LoadChannelConfigs() error {
 		chID := strings.TrimSuffix(n, ".yml")
 		err = b.loadChannel(chID)
 
-		errHandled := false
-		if rErr, ok := err.(*discordgo.RESTError); ok && rErr != nil && rErr.Message != nil {
-			shouldRemoveChannel := false
-			shouldNotifyChannel := false
-			var logMsg string
+		errHandled := b.handleCriticalPermissionsErrors(chID, err)
 
-			switch rErr.Message.Code {
-			case discordgo.ErrCodeUnknownChannel, discordgo.ErrCodeMissingAccess:
-				shouldRemoveChannel = true
-				logMsg = fmt.Sprintf("Removed unknown channel ID %s", chID)
-			case discordgo.ErrCodeMissingPermissions:
-				shouldRemoveChannel = true
-				shouldNotifyChannel = true
-				channelObj, _ := b.s.Channel(chID)
-				if channelObj != nil {
-					guildObj, _ := b.s.Guild(channelObj.GuildID)
-					if guildObj != nil {
-						logMsg = fmt.Sprintf("AutoDelete disabled from channel #%s (%s) (server %s (%s)) due to missing critical permissions", channelObj.Name, chID, guildObj.Name, channelObj.GuildID)
-					} else {
-						logMsg = fmt.Sprintf("AutoDelete disabled from channel #%s (%s) (server ID %s) due to missing critical permissions", channelObj.Name, chID, channelObj.GuildID)
-					}
-				} else {
-					logMsg = fmt.Sprintf("AutoDelete disabled from channel (%s) (server unknown) due to missing critical permissions", chID)
-				}
-			}
-
-			if shouldRemoveChannel {
-				b.ReportToLogChannel(logMsg)
-				if shouldNotifyChannel {
-					_, err := b.s.ChannelMessageSend(chID, logMsg)
-					fmt.Println("error reporting removal to channel", chID, ":", err)
-				}
-				b.deleteChannelConfig(chID)
-				errHandled = true
-			}
-		}
 		if err != nil && !errHandled {
 			channelObj, _ := b.s.Channel(chID)
 			if channelObj != nil {
