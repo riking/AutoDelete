@@ -124,6 +124,19 @@ func (b *Bot) saveChannelConfig(conf managedChannelMarshal) error {
 	return nil
 }
 
+func (b *Bot) deleteChannelConfig(chID string) error {
+	fileName := fmt.Sprintf(pathChannelConfig, chID)
+	err := os.Remove(fileName)
+	if err != nil {
+		return err
+	}
+
+	b.mu.Lock()
+	delete(b.channels, chID)
+	b.mu.Unlock()
+	return nil
+}
+
 // Change the config to the provided one.
 func (b *Bot) setChannelConfig(conf managedChannelMarshal) error {
 	err := b.saveChannelConfig(conf)
@@ -149,16 +162,68 @@ func (b *Bot) LoadChannelConfigs() error {
 			continue
 		}
 		chID := strings.TrimSuffix(n, ".yml")
-		_ = chID
-		// err = b.loadChannel(chID)
-		// if err != nil {
-		//	fmt.Println("error loading configuration from", n, ":", err)
-		// }
+		err = b.loadChannel(chID)
+
+		errHandled := false
+		if rErr, ok := err.(*discordgo.RESTError); ok && rErr != nil && rErr.Message != nil {
+			shouldRemoveChannel := false
+			shouldNotifyChannel := false
+			var logMsg string
+
+			switch rErr.Message.Code {
+			case discordgo.ErrCodeUnknownChannel, discordgo.ErrCodeMissingAccess:
+				shouldRemoveChannel = true
+				logMsg = fmt.Sprintf("Removed unknown channel ID %s", chID)
+			case discordgo.ErrCodeMissingPermissions:
+				shouldRemoveChannel = true
+				shouldNotifyChannel = true
+				channelObj, _ := b.s.Channel(chID)
+				if channelObj != nil {
+					guildObj, _ := b.s.Guild(channelObj.GuildID)
+					if guildObj != nil {
+						logMsg = fmt.Sprintf("AutoDelete disabled from channel #%s (%s) (server %s (%s)) due to missing critical permissions", channelObj.Name, chID, guildObj.Name, channelObj.GuildID)
+					} else {
+						logMsg = fmt.Sprintf("AutoDelete disabled from channel #%s (%s) (server ID %s) due to missing critical permissions", channelObj.Name, chID, channelObj.GuildID)
+					}
+				} else {
+					logMsg = fmt.Sprintf("AutoDelete disabled from channel (%s) (server unknown) due to missing critical permissions", chID)
+				}
+			}
+
+			if shouldRemoveChannel {
+				b.ReportToLogChannel(logMsg)
+				if shouldNotifyChannel {
+					_, err := b.s.ChannelMessageSend(chID, logMsg)
+					fmt.Println("error reporting removal to channel", chID, ":", err)
+				}
+				b.deleteChannelConfig(chID)
+				errHandled = true
+			}
+		}
+		if err != nil && !errHandled {
+			channelObj, _ := b.s.Channel(chID)
+			if channelObj != nil {
+				guildObj, _ := b.s.Guild(channelObj.GuildID)
+				if guildObj != nil {
+					fmt.Printf("Error loading configuration from #%s (%s) (server %s (%s)): %v\n", channelObj.Name, chID, guildObj.Name, channelObj.GuildID, err)
+					errHandled = true
+				}
+			}
+		}
+		if err != nil && !errHandled {
+			fmt.Printf("Error loading configuration for %s: %v\n", chID, err)
+			errHandled = true
+		}
 	}
 	return nil
 }
 
 func (b *Bot) loadChannel(channelID string) error {
+	_, err := b.s.Channel(channelID)
+	if err != nil {
+		return err
+	}
+
 	fileName := fmt.Sprintf(pathChannelConfig, channelID)
 	f, err := os.Open(fileName)
 	if os.IsNotExist(err) {
@@ -191,16 +256,6 @@ func (b *Bot) loadChannel(channelID string) error {
 
 	err = mCh.LoadBacklog()
 	if err != nil {
-		/*
-			if rErr, ok := err.(*discordgo.RESTError); ok {
-				if rErr.Message != nil {
-					if rErr.Message.Code == 50001 { // Missing access
-					} else if rErr.Message.Code == 50013 { // Missing permissions
-					} else if rErr.Message.Code == 10003 { // Deleted Channel
-					}
-				}
-			}
-		*/
 		fmt.Println("Loading backlog for", channelID, err)
 		return err
 	}
