@@ -12,10 +12,35 @@ const textHelp = `Commands:
   @AutoDelete set [duration: 30m] [count: 10] - starts this channel for message auto-deletion
       Duration or message count can be specified as ` + "`-`" + ` to not use that, but at least one must be specified. Use "set 0 0" to disable the bot.
   @AutoDelete help - prints this help message
+  @AutoDelete adminhelp [anything...] - forwards your request to the help server
 For more help, join the help server: <https://discord.gg/FUGn8yE>`
 
 func CommandHelp(b *Bot, m *discordgo.Message, rest []string) {
 	b.s.ChannelMessageSend(m.ChannelID, textHelp)
+}
+
+func CommandAdminHelp(b *Bot, m *discordgo.Message, rest []string) {
+	plainContent, err := m.ContentWithMoreMentionsReplaced(b.s)
+	if err != nil {
+		plainContent = m.Content
+	}
+	var channelName, guildID, guildName string
+	ch, err := b.s.State.Channel(m.ChannelID)
+	if err != nil {
+		channelName = ch.Name
+		guildID = ch.GuildID
+		guild, err := b.s.State.Guild(ch.GuildID)
+		if err != nil {
+			guildName = guild.Name
+		}
+	}
+	b.ReportToLogChannel(fmt.Sprintf(
+		"Adminhelp command from %s (%s#%s) in #%s (ch id %s) of '%s' (guild id %s):\n%s",
+		m.Author.Mention(), m.Author.Username, m.Author.Discriminator,
+		channelName, m.ChannelID,
+		guildName, guildID,
+		plainContent,
+	))
 }
 
 func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
@@ -92,4 +117,10 @@ var commands = map[string]func(b *Bot, m *discordgo.Message, rest []string){
 	"set":   CommandModify,
 	"start": CommandModify,
 	"setup": CommandModify,
+
+	"ahelp":     CommandAdminHelp,
+	"adminhelp": CommandAdminHelp,
+	"amsg":      CommandAdminHelp,
+	"adminmsg":  CommandAdminHelp,
+	"support":   CommandAdminHelp,
 }
