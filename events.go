@@ -42,12 +42,20 @@ func (b *Bot) HandleMentions(s *discordgo.Session, m *discordgo.MessageCreate) {
 			break
 		}
 	}
+	// TODO allow mentioning the bot role
+	// for _, roleID := range m.Message.MentionRoles {
+	// looks like <&1234roleid6789>
+	// }
 	if !found {
 		return
 	}
 
 	split := strings.Fields(m.Message.Content)
-	if split[0] == b.me.Mention() && len(split) > 1 {
+	plainMention := "<@" + b.me.ID + ">"
+	nickMention := "<@!" + b.me.ID + ">"
+
+	if ((split[0] == plainMention) ||
+		(split[0] == nickMention)) && len(split) > 1 {
 		cmd := split[1]
 		fun, ok := commands[cmd]
 		if ok {
