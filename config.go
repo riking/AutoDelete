@@ -128,7 +128,8 @@ func (b *Bot) deleteChannelConfig(chID string) error {
 	fileName := fmt.Sprintf(pathChannelConfig, chID)
 	err := os.Remove(fileName)
 	if err != nil {
-		return err
+		fmt.Println("failed to delete channel config for", chID, ":", err)
+		// do NOT return
 	}
 
 	b.mu.Lock()
