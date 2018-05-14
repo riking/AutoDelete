@@ -26,11 +26,11 @@ func CommandAdminHelp(b *Bot, m *discordgo.Message, rest []string) {
 	}
 	var channelName, guildID, guildName string
 	ch, err := b.s.Channel(m.ChannelID)
-	if err != nil {
+	if err == nil {
 		channelName = ch.Name
 		guildID = ch.GuildID
 		guild, err := b.s.Guild(ch.GuildID)
-		if err != nil {
+		if err == nil {
 			guildName = guild.Name
 		}
 	}
