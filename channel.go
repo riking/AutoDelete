@@ -116,6 +116,10 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 	<-c.isStarted
 	needReap := false
 
+	if m.Type == discordgo.MessageTypeChannelPinnedMessage {
+		fmt.Println("[DEBUG]", "Got pinning message", m)
+	}
+
 	c.mu.Lock()
 	if m.ID == c.ConfMessageID {
 		c.mu.Unlock()

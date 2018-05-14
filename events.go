@@ -18,6 +18,7 @@ func (b *Bot) ConnectDiscord() error {
 	s.AddHandler(b.OnReady)
 	s.AddHandler(b.OnResume)
 	s.AddHandler(b.OnChannelCreate)
+	s.AddHandler(b.OnChannelPins)
 	s.AddHandler(b.HandleMentions)
 	s.AddHandler(b.OnMessage)
 	me, err := s.User("@me")
@@ -77,6 +78,17 @@ func (b *Bot) OnMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 func (b *Bot) OnChannelCreate(s *discordgo.Session, ch *discordgo.ChannelCreate) {
 	// No action, need a config message
+}
+
+func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdate) {
+	b.mu.RLock()
+	mCh, ok := b.channels[ev.ChannelID]
+	b.mu.RUnlock()
+	if !ok || mCh == nil {
+		return
+	}
+
+	fmt.Println("Channel pins changed for", mCh.Channel.ID, mCh.Channel.Name, "- new lpts", ev.LastPinTimestamp)
 }
 
 func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
