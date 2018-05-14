@@ -3,6 +3,7 @@ package autodelete
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -14,6 +15,8 @@ const textHelp = `Commands:
   @AutoDelete help - prints this help message
   @AutoDelete adminhelp [anything...] - forwards your request to the help server
 For more help, join the help server: <https://discord.gg/FUGn8yE>`
+
+const adminUserID = `82592645502734336`
 
 func CommandHelp(b *Bot, m *discordgo.Message, rest []string) {
 	b.s.ChannelMessageSend(m.ChannelID, textHelp)
@@ -41,6 +44,28 @@ func CommandAdminHelp(b *Bot, m *discordgo.Message, rest []string) {
 		guildName, guildID,
 		plainContent,
 	))
+}
+
+func CommandAdminSay(b *Bot, m *discordgo.Message, rest []string) {
+	channelID := rest[0]
+
+	if m.Author.ID != adminUserID {
+		return
+	}
+
+	ch, err := b.s.Channel(channelID)
+	if err != nil {
+		b.s.ChannelMessageSend(m.ChannelID, "channel does not exist")
+		return
+	}
+
+	b.s.ChannelMessageSendComplex(ch.ID, &discordgo.MessageSend{
+		Content: "[ADMIN]",
+		Embed: &discordgo.MessageEmbed{
+			Title:       "Message from bot administrator",
+			Description: strings.Join(rest[1:], " "),
+		},
+	})
 }
 
 func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
@@ -123,4 +148,5 @@ var commands = map[string]func(b *Bot, m *discordgo.Message, rest []string){
 	"amsg":      CommandAdminHelp,
 	"adminmsg":  CommandAdminHelp,
 	"support":   CommandAdminHelp,
+	"adminsay":  CommandAdminSay,
 }
