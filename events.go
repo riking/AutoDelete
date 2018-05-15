@@ -97,6 +97,7 @@ func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdat
 	}
 
 	fmt.Println("Channel pins changed for", mCh.Channel.ID, mCh.Channel.Name, "- new lpts", ev.LastPinTimestamp)
+	mCh.UpdatePins()
 }
 
 func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {

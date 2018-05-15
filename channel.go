@@ -30,6 +30,7 @@ type ManagedChannel struct {
 	// if false, need to check channel history for messages
 	isStarted    chan struct{}
 	liveMessages []smallMessage
+	pinMessages  []smallMessage
 }
 
 func (c *ManagedChannel) Export() managedChannelMarshal {
@@ -68,17 +69,49 @@ func (c *ManagedChannel) LoadBacklog() error {
 		fmt.Println("could not load backlog for", c.Channel.ID, err)
 		return err
 	}
+	pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
+	if err != nil {
+		fmt.Println("could not load backlog for", c.Channel.ID, err)
+		return err
+	}
 	fmt.Println("backlog for", c.Channel.ID, "len =", len(msgs))
 
 	defer c.bot.QueueReap(c) // requires mutex unlocked
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.liveMessages = make([]smallMessage, 0, len(msgs))
-	for i := len(msgs); i > 0; i-- {
-		v := msgs[i-1]
-		if v.ID == c.ConfMessageID {
+	c.pinMessages = make([]smallMessage, 0, len(pins))
+	quickPinLookup := make(map[string]struct{})
+	for i := range pins {
+		ts, err := pins[i].Timestamp.Parse()
+		if err != nil {
+			panic("Timestamp format change")
+		}
+		if ts.IsZero() {
 			continue
 		}
+		c.pinMessages = append(c.pinMessages, smallMessage{
+			MessageID: pins[i].ID,
+			PostedAt:  ts,
+		})
+		quickPinLookup[pins[i].ID] = struct{}{}
+	}
+	// Iterate backwards so we swap the order
+	for i := len(msgs); i > 0; i-- {
+		v := msgs[i-1]
+
+		// Check for non-deletion
+		keep := false
+		if v.ID == c.ConfMessageID {
+			keep = true
+		}
+		if _, found := quickPinLookup[v.ID]; found {
+			keep = true
+		}
+		if keep {
+			continue
+		}
+
 		ts, err := v.Timestamp.Parse()
 		if err != nil {
 			panic("Timestamp format change")
@@ -116,12 +149,18 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 	<-c.isStarted
 	needReap := false
 
-	if m.Type == discordgo.MessageTypeChannelPinnedMessage {
-		fmt.Println("[DEBUG]", "Got pinning message", m)
-	}
+	// if m.Type == discordgo.MessageTypeChannelPinnedMessage {
+	//	fmt.Println("[DEBUG]", "Got pinning message", m)
+	// }
 
 	c.mu.Lock()
+	// Check for nondeletion
+	// don't need a pin check here, it's a brand new message
+	keep := false
 	if m.ID == c.ConfMessageID {
+		keep = true
+	}
+	if keep {
 		c.mu.Unlock()
 		return
 	}
@@ -143,6 +182,67 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 		fmt.Println(m)
 		c.bot.QueueReap(c)
 	}
+}
+
+// UpdatePins gets called in two situations - a pin was added, a pin was
+// removed, or more than one of those happened too fast for us to notice.
+func (c *ManagedChannel) UpdatePins() {
+	pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
+	if err != nil {
+		fmt.Println("could not load backlog for", c.Channel.ID, err)
+		return
+	}
+	newPins := make(map[string]struct{})
+	remPins := make(map[string]struct{})
+
+	for _, v := range pins {
+		newPins[v.ID] = struct{}{}
+	}
+	c.mu.Lock()
+	for _, v := range c.pinMessages {
+		_, matched := newPins[v.MessageID]
+		if matched {
+			delete(newPins, v.MessageID)
+		} else {
+			remPins[v.MessageID] = struct{}{}
+		}
+	}
+	c.mu.Unlock()
+
+	fmt.Println("pins update for", c.Channel.ID, c.Channel.Name, "-", len(newPins), "added,", len(remPins), "removed")
+	for msgID := range newPins {
+		c.DoNotDeleteMessage(msgID)
+	}
+	if len(remPins) > 0 {
+		c.LoadBacklog()
+	}
+	// Doesn't work -- AddMessage works chronologically
+	// for msgID := range remPins {
+	// 	msg := c.b.s.ChannelMessage(c.Channel.ID, msgID)
+	// 	c.AddMessage(msg)
+	// }
+}
+
+// DoNotDeleteMessage marks a message ID as not for deletion.
+func (c *ManagedChannel) DoNotDeleteMessage(msgID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	idx := -1
+
+	for i, v := range c.liveMessages {
+		if v.MessageID == msgID {
+			idx = i
+		}
+	}
+	if idx == -1 {
+		fmt.Println("[BUG] DoNotDeleteMessage called with non-live message")
+		return
+	}
+	lenMinus1 := len(c.liveMessages) - 1
+	// Delete item
+	copy(c.liveMessages[idx:], c.liveMessages[idx+1:])
+	c.liveMessages[lenMinus1] = smallMessage{}
+	c.liveMessages = c.liveMessages[:lenMinus1]
 }
 
 func (c *ManagedChannel) Enabled() bool {
