@@ -72,7 +72,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 	pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
 	if err != nil {
 		fmt.Println("could not load pins for", c.Channel.ID, err)
-		return err
+		// return err
 	}
 	fmt.Println("backlog for", c.Channel.ID, "len =", len(msgs))
 
