@@ -189,7 +189,7 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 func (c *ManagedChannel) UpdatePins() {
 	pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
 	if err != nil {
-		fmt.Println("could not load backlog for", c.Channel.ID, err)
+		fmt.Println("could not load pins for", c.Channel.ID, err)
 		return
 	}
 	newPins := make(map[string]struct{})

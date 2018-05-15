@@ -6,6 +6,8 @@ Messages are deleted on a "rolling" basis -- if you set a 24-hour live time, eac
 
 Add it to your server here: https://home.riking.org/discord_auto_delete/oauth/start
 
+Support me on Patreon if you enjoy the bot: https://www.patreon.com/riking
+
 Announcements server: https://discord.gg/FUGn8yE
 
 ## Usage
