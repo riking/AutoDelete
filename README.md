@@ -1,5 +1,7 @@
 # AutoDelete
 
+### _cleaning up over 100 channels since 2017_
+
 AutoDelete is a Discord bot that will automatically delete messages from a designated channel.
 
 Messages are deleted on a "rolling" basis -- if you set a 24-hour live time, each message will be deleted 24 hours after it is posted (as opposed to all messages being deleted every 24 hours).
