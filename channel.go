@@ -76,6 +76,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 			// return err
 		}
 	*/
+	pins := make([]*discordgo.Message, 0)
 
 	defer c.bot.QueueReap(c) // requires mutex unlocked
 	c.mu.Lock()
