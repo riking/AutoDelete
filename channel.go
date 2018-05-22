@@ -69,11 +69,13 @@ func (c *ManagedChannel) LoadBacklog() error {
 		fmt.Println("could not load backlog for", c.Channel.ID, err)
 		return err
 	}
-	pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
-	if err != nil {
-		fmt.Println("could not load pins for", c.Channel.ID, err)
-		// return err
-	}
+	/*
+		pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
+		if err != nil {
+			fmt.Println("could not load pins for", c.Channel.ID, err)
+			// return err
+		}
+	*/
 
 	defer c.bot.QueueReap(c) // requires mutex unlocked
 	c.mu.Lock()
@@ -132,7 +134,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 		close(c.isStarted)
 		inited = "initialized"
 	}
-	fmt.Printf("[load] %s %s %s, %d msgs %d pins\n", c.Channel.ID, c.Channel.Name, inited, len(c.liveMessages), len(c.pinMessages))
+	fmt.Printf("[load] %s #%s %s, %d msgs %d pins\n", c.Channel.ID, c.Channel.Name, inited, len(c.liveMessages), len(c.pinMessages))
 	return nil
 }
 
