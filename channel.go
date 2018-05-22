@@ -74,7 +74,6 @@ func (c *ManagedChannel) LoadBacklog() error {
 		fmt.Println("could not load pins for", c.Channel.ID, err)
 		// return err
 	}
-	fmt.Println("backlog for", c.Channel.ID, "len =", len(msgs))
 
 	defer c.bot.QueueReap(c) // requires mutex unlocked
 	c.mu.Lock()
@@ -126,12 +125,14 @@ func (c *ManagedChannel) LoadBacklog() error {
 	}
 
 	// mark as ready for AddMessage()
+	inited := "reloaded"
 	select {
 	case <-c.isStarted:
 	default:
 		close(c.isStarted)
-		fmt.Println("Initialized auto-deletion for", c.Channel.Name, c.Channel.ID)
+		inited = "initialized"
 	}
+	fmt.Printf("[load] %s %s %s, %d msgs %d pins\n", c.Channel.ID, c.Channel.Name, inited, len(c.liveMessages), len(c.pinMessages))
 	return nil
 }
 
