@@ -282,13 +282,14 @@ func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 
 const errCodeBulkDeleteOld = 50034
 
-func (c *ManagedChannel) Reap() error {
+func (c *ManagedChannel) Reap() (int, error) {
 	msgs := c.collectMessagesToDelete()
 	if len(msgs) == 0 {
 		fmt.Println("no messages to clean")
-		return nil
+		return 0, nil
 	}
 	var err error
+	count := 0
 
 nobulk:
 	switch {
@@ -299,22 +300,24 @@ nobulk:
 				if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
 					break nobulk
 				}
-				return err
+				return count, err
 			} else if err != nil {
-				return err
+				return count, err
 			}
 			msgs = msgs[50:]
+			count += 50
 		}
 		err = c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs)
+		count += len(msgs)
 		if rErr, ok := err.(*discordgo.RESTError); ok {
 			if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
 				break nobulk
 			}
-			return err
+			return count, err
 		} else if err != nil {
-			return err
+			return count, err
 		}
-		return nil
+		return count, nil
 	}
 
 	// single delete required
@@ -329,7 +332,7 @@ nobulk:
 		// re-load the backlog in case this surfaced more things to delete
 		c.LoadBacklog()
 	}()
-	return nil
+	return -1, nil
 }
 
 func (c *ManagedChannel) collectMessagesToDelete() []string {
