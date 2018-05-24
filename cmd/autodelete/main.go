@@ -37,5 +37,6 @@ func main() {
 	fmt.Printf("url: %s%s\n", conf.HTTP.Public, "/discord_auto_delete/oauth/start")
 	http.HandleFunc("/discord_auto_delete/oauth/start", b.HTTPOAuthStart)
 	http.HandleFunc("/discord_auto_delete/oauth/callback", b.HTTPOAuthCallback)
-	http.ListenAndServe(conf.HTTP.Listen, nil)
+	err = http.ListenAndServe(conf.HTTP.Listen, nil)
+	fmt.Println("exiting main()", err)
 }
