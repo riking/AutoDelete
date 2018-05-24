@@ -129,21 +129,25 @@ func (b *Bot) QueueReap(c *ManagedChannel) {
 	var reapTime time.Time
 
 	reapTime = c.GetNextDeletionTime()
-	fmt.Println("got reap queue for", c.Channel.ID, c.Channel.Name, reapTime)
+	//fmt.Println("got reap queue for", c.Channel.ID, c.Channel.Name, reapTime)
 	b.reaper.Update(c, reapTime)
 }
 
 func (b *Bot) reapWorker() {
 	for {
 		ch := b.reaper.WaitForNext()
-		fmt.Printf("Reaper starting for %s\n", ch.Channel.ID)
-		err := ch.Reap()
+		//fmt.Printf("Reaper starting for %s\n", ch.Channel.ID)
+		count, err := ch.Reap()
 		if b.handleCriticalPermissionsErrors(ch.Channel.ID, err) {
 			continue
 		}
 		if err != nil {
-			fmt.Printf("Reaper error for %s: %v\n", ch.Channel.ID, err)
+			fmt.Printf("[reap] %s #%s: deleted %d, got error: %v\n", ch.Channel.ID, ch.Channel.Name, count, err)
 			ch.LoadBacklog()
+		} else if count == -1 {
+			fmt.Printf("[reap] %s #%s: doing single-message delete\n", ch.Channel.ID, ch.Channel.Name)
+		} else {
+			fmt.Printf("[reap] %s #%s: deleted %d messages\n", ch.Channel.ID, ch.Channel.Name, count)
 		}
 		b.QueueReap(ch)
 	}

@@ -69,12 +69,14 @@ func (c *ManagedChannel) LoadBacklog() error {
 		fmt.Println("could not load backlog for", c.Channel.ID, err)
 		return err
 	}
-	pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
-	if err != nil {
-		fmt.Println("could not load pins for", c.Channel.ID, err)
-		// return err
-	}
-	fmt.Println("backlog for", c.Channel.ID, "len =", len(msgs))
+	/*
+		pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
+		if err != nil {
+			fmt.Println("could not load pins for", c.Channel.ID, err)
+			// return err
+		}
+	*/
+	pins := make([]*discordgo.Message, 0)
 
 	defer c.bot.QueueReap(c) // requires mutex unlocked
 	c.mu.Lock()
@@ -126,12 +128,14 @@ func (c *ManagedChannel) LoadBacklog() error {
 	}
 
 	// mark as ready for AddMessage()
+	inited := "reloaded"
 	select {
 	case <-c.isStarted:
 	default:
 		close(c.isStarted)
-		fmt.Println("Initialized auto-deletion for", c.Channel.Name, c.Channel.ID)
+		inited = "initialized"
 	}
+	fmt.Printf("[load] %s #%s %s, %d msgs %d pins\n", c.Channel.ID, c.Channel.Name, inited, len(c.liveMessages), len(c.pinMessages))
 	return nil
 }
 
@@ -282,13 +286,14 @@ func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 
 const errCodeBulkDeleteOld = 50034
 
-func (c *ManagedChannel) Reap() error {
+func (c *ManagedChannel) Reap() (int, error) {
 	msgs := c.collectMessagesToDelete()
 	if len(msgs) == 0 {
 		fmt.Println("no messages to clean")
-		return nil
+		return 0, nil
 	}
 	var err error
+	count := 0
 
 nobulk:
 	switch {
@@ -299,22 +304,24 @@ nobulk:
 				if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
 					break nobulk
 				}
-				return err
+				return count, err
 			} else if err != nil {
-				return err
+				return count, err
 			}
 			msgs = msgs[50:]
+			count += 50
 		}
 		err = c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs)
+		count += len(msgs)
 		if rErr, ok := err.(*discordgo.RESTError); ok {
 			if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
 				break nobulk
 			}
-			return err
+			return count, err
 		} else if err != nil {
-			return err
+			return count, err
 		}
-		return nil
+		return count, nil
 	}
 
 	// single delete required
@@ -329,7 +336,7 @@ nobulk:
 		// re-load the backlog in case this surfaced more things to delete
 		c.LoadBacklog()
 	}()
-	return nil
+	return -1, nil
 }
 
 func (c *ManagedChannel) collectMessagesToDelete() []string {
