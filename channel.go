@@ -344,11 +344,16 @@ func (c *ManagedChannel) collectMessagesToDelete() []string {
 	defer c.mu.Unlock()
 
 	var toDelete []string
+	var oldest time.Time
+	var zero time.Time
 
 	if c.MaxMessages > 0 {
 		for len(c.liveMessages) > c.MaxMessages {
 			if c.liveMessages[0].MessageID != c.ConfMessageID {
 				toDelete = append(toDelete, c.liveMessages[0].MessageID)
+				if oldest == zero {
+					oldest = c.liveMessages[0].PostedAt
+				}
 			}
 			c.liveMessages = c.liveMessages[1:]
 		}
@@ -358,8 +363,21 @@ func (c *ManagedChannel) collectMessagesToDelete() []string {
 		for len(c.liveMessages) > 0 && c.liveMessages[0].PostedAt.Before(cutoff) {
 			if c.liveMessages[0].MessageID != c.ConfMessageID {
 				toDelete = append(toDelete, c.liveMessages[0].MessageID)
+				if oldest == zero {
+					oldest = c.liveMessages[0].PostedAt
+				}
 			}
 			c.liveMessages = c.liveMessages[1:]
+		}
+		// Collect additional messages within 1.5sec of deleted message
+		if oldest != zero {
+			cutoff = oldest.Add(1500 * time.Millisecond)
+			for len(c.liveMessages) > 0 && c.liveMessages[0].PostedAt.Before(cutoff) {
+				if c.liveMessages[0].MessageID != c.ConfMessageID {
+					toDelete = append(toDelete, c.liveMessages[0].MessageID)
+				}
+				c.liveMessages = c.liveMessages[1:]
+			}
 		}
 	}
 
