@@ -139,11 +139,44 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 	}
 }
 
+func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {
+	var guildID string
+
+	if len(rest) == 0 {
+		channel, err := b.s.Channel(m.ChannelID)
+		if err != nil {
+			fmt.Println("[cmdE] channel does not exist", m.ChannelID)
+			return
+		}
+		guildID = channel.GuildID
+		apermissions, err := b.s.UserChannelPermissions(m.Author.ID, m.ChannelID)
+		perm := discordgo.PermissionManageServer
+		if apermissions&perm != perm {
+			b.s.ChannelMessageSend(m.ChannelID, "Leaving the current server requires MANAGE_SERVER permission.")
+		}
+	} else {
+		if m.Author.ID != adminUserID {
+			b.s.ChannelMessageSend(m.ChannelID, "Leaving other servers can only be done by the bot controller.")
+			return
+		}
+		guildID = rest[0]
+	}
+
+	msg := fmt.Sprintf("Leaving guild ID %s", guildID)
+	b.s.ChannelMessageSend(m.ChannelID, msg)
+	fmt.Println("[leav]", msg)
+	err := b.s.GuildLeave(guildID)
+	if err != nil {
+		fmt.Println("[cmdE] error leaving:", err)
+	}
+}
+
 var commands = map[string]func(b *Bot, m *discordgo.Message, rest []string){
 	"help":  CommandHelp,
 	"set":   CommandModify,
 	"start": CommandModify,
 	"setup": CommandModify,
+	"leave": CommandLeave,
 
 	"ahelp":     CommandAdminHelp,
 	"adminhelp": CommandAdminHelp,
