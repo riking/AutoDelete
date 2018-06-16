@@ -54,6 +54,8 @@ type managedChannelMarshal struct {
 	LiveTime       time.Duration `yaml:"live_time"`
 	MaxMessages    int           `yaml:"max_messages"`
 	LastSentUpdate int           `yaml:"last_critical_msg"`
+	HasPins        bool          `yaml:"has_pins,omitempty"`
+	IsDonor        bool          `yaml:"is_donor,omitempty"`
 }
 
 const pathChannelConfDir = "./data"

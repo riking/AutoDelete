@@ -27,6 +27,8 @@ type ManagedChannel struct {
 	ConfMessageID   string
 	// if lower than CriticalMsgSequence, need to send one
 	LastSentUpdate int
+	HasPins        bool
+	IsDonor        bool
 	// if false, need to check channel history for messages
 	isStarted    chan struct{}
 	liveMessages []smallMessage
@@ -43,6 +45,8 @@ func (c *ManagedChannel) Export() managedChannelMarshal {
 		MaxMessages:    c.MaxMessages,
 		LastSentUpdate: c.LastSentUpdate,
 		ConfMessageID:  c.ConfMessageID,
+		HasPins:        c.HasPins,
+		IsDonor:        c.IsDonor,
 	}
 }
 
@@ -58,9 +62,21 @@ func InitChannel(b *Bot, chConf managedChannelMarshal) (*ManagedChannel, error) 
 		MaxMessages:     chConf.MaxMessages,
 		LastSentUpdate:  chConf.LastSentUpdate,
 		ConfMessageID:   chConf.ConfMessageID,
+		HasPins:         chConf.HasPins,
+		IsDonor:         chConf.IsDonor,
 		isStarted:       make(chan struct{}),
 		liveMessages:    nil,
 	}, nil
+}
+
+func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
+	c.mu.Lock()
+	hasPins := c.HasPins
+	c.mu.Unlock()
+	if !hasPins {
+		return nil, nil
+	}
+	return c.bot.s.ChannelMessagesPinned(c.Channel.ID)
 }
 
 func (c *ManagedChannel) LoadBacklog() error {
@@ -69,14 +85,11 @@ func (c *ManagedChannel) LoadBacklog() error {
 		fmt.Println("could not load backlog for", c.Channel.ID, err)
 		return err
 	}
-	/*
-		pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
-		if err != nil {
-			fmt.Println("could not load pins for", c.Channel.ID, err)
-			// return err
-		}
-	*/
-	pins := make([]*discordgo.Message, 0)
+	pins, err := c.loadPins()
+	if err != nil {
+		fmt.Println("could not load pins for", c.Channel.ID, err)
+		//return err
+	}
 
 	defer c.bot.QueueReap(c) // requires mutex unlocked
 	c.mu.Lock()
@@ -189,6 +202,10 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 // UpdatePins gets called in two situations - a pin was added, a pin was
 // removed, or more than one of those happened too fast for us to notice.
 func (c *ManagedChannel) UpdatePins() {
+	c.mu.Lock()
+	c.HasPins = true
+	c.mu.Unlock()
+
 	pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
 	if err != nil {
 		fmt.Println("could not load pins for", c.Channel.ID, err)
@@ -226,6 +243,7 @@ func (c *ManagedChannel) UpdatePins() {
 }
 
 // DoNotDeleteMessage marks a message ID as not for deletion.
+// only called from UpdatePins()
 func (c *ManagedChannel) DoNotDeleteMessage(msgID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
