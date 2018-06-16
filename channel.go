@@ -205,36 +205,36 @@ func (c *ManagedChannel) UpdatePins() {
 	c.mu.Lock()
 	c.HasPins = true
 	c.mu.Unlock()
+	c.LoadBacklog()
 
-	pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
-	if err != nil {
-		fmt.Println("could not load pins for", c.Channel.ID, err)
-		return
-	}
-	newPins := make(map[string]struct{})
-	remPins := make(map[string]struct{})
-
-	for _, v := range pins {
-		newPins[v.ID] = struct{}{}
-	}
-	c.mu.Lock()
-	for _, v := range c.pinMessages {
-		_, matched := newPins[v.MessageID]
-		if matched {
-			delete(newPins, v.MessageID)
-		} else {
-			remPins[v.MessageID] = struct{}{}
+	/*
+		pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
+		if err != nil {
+			fmt.Println("could not load pins for", c.Channel.ID, err)
+			return
 		}
-	}
-	c.mu.Unlock()
+		newPins := make(map[string]struct{})
+		remPins := make(map[string]struct{})
 
-	fmt.Println("pins update for", c.Channel.ID, c.Channel.Name, "-", len(newPins), "added,", len(remPins), "removed")
-	for msgID := range newPins {
-		c.DoNotDeleteMessage(msgID)
-	}
-	if len(remPins) > 0 {
-		c.LoadBacklog()
-	}
+		for _, v := range pins {
+			newPins[v.ID] = struct{}{}
+		}
+		c.mu.Lock()
+		for _, v := range c.pinMessages {
+			_, matched := newPins[v.MessageID]
+			if matched {
+				delete(newPins, v.MessageID)
+			} else {
+				remPins[v.MessageID] = struct{}{}
+			}
+		}
+		c.mu.Unlock()
+
+		fmt.Println("pins update for", c.Channel.ID, c.Channel.Name, "-", len(newPins), "added,", len(remPins), "removed")
+	*/
+	// if len(remPins) > 0 || len(newPins) > 0 {
+	// c.LoadBacklog()
+	// }
 	// Doesn't work -- AddMessage works chronologically
 	// for msgID := range remPins {
 	// 	msg := c.b.s.ChannelMessage(c.Channel.ID, msgID)
