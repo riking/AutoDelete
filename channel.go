@@ -203,8 +203,14 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 // removed, or more than one of those happened too fast for us to notice.
 func (c *ManagedChannel) UpdatePins() {
 	c.mu.Lock()
+	oldHasPins := c.HasPins
 	c.HasPins = true
 	c.mu.Unlock()
+
+	if !oldHasPins {
+		c.bot.saveChannelConfig(c.Export())
+	}
+
 	c.LoadBacklog()
 
 	/*
