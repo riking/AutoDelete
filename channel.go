@@ -201,17 +201,19 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 
 // UpdatePins gets called in two situations - a pin was added, a pin was
 // removed, or more than one of those happened too fast for us to notice.
-func (c *ManagedChannel) UpdatePins() {
+func (c *ManagedChannel) UpdatePins(hasPins bool) {
 	c.mu.Lock()
 	oldHasPins := c.HasPins
-	c.HasPins = true
+	c.HasPins = hasPins
 	c.mu.Unlock()
 
-	if !oldHasPins {
+	if oldHasPins != hasPins {
 		c.bot.saveChannelConfig(c.Export())
 	}
 
-	c.LoadBacklog()
+	if hasPins {
+		c.LoadBacklog()
+	}
 
 	/*
 		pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
