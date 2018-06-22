@@ -54,18 +54,25 @@ func (pq priorityQueue) Peek() *pqItem {
 	return pq[0]
 }
 
+type reapWorkItem struct {
+	ch   *ManagedChannel
+	msgs []string
+}
+
 type reapQueue struct {
-	items *priorityQueue
-	cond  *sync.Cond
-	timer *time.Timer
+	items  *priorityQueue
+	cond   *sync.Cond
+	timer  *time.Timer
+	workCh chan reapWorkItem
 }
 
 func newReapQueue() *reapQueue {
 	var locker sync.Mutex
 	q := &reapQueue{
-		items: new(priorityQueue),
-		cond:  sync.NewCond(&locker),
-		timer: time.NewTimer(0),
+		items:  new(priorityQueue),
+		cond:   sync.NewCond(&locker),
+		timer:  time.NewTimer(0),
+		workCh: make(chan reapWorkItem),
 	}
 	go func() {
 		// Signal the condition variable every time the timer expires.
@@ -133,11 +140,25 @@ func (b *Bot) QueueReap(c *ManagedChannel) {
 	b.reaper.Update(c, reapTime)
 }
 
-func (b *Bot) reapWorker() {
+func (b *Bot) reapScheduler() {
+	for i := 0; i < 4; i++ {
+		go b.reapWorker()
+	}
+
 	for {
 		ch := b.reaper.WaitForNext()
-		//fmt.Printf("Reaper starting for %s\n", ch.Channel.ID)
-		count, err := ch.Reap()
+		msgs := ch.collectMessagesToDelete()
+		b.reaper.workCh <- reapWorkItem{ch: ch, msgs: msgs}
+		b.QueueReap(ch)
+	}
+}
+
+func (b *Bot) reapWorker() {
+	for work := range b.reaper.workCh {
+		ch := work.ch
+		msgs := work.msgs
+
+		count, err := ch.Reap(msgs)
 		if b.handleCriticalPermissionsErrors(ch.Channel.ID, err) {
 			continue
 		}
@@ -149,6 +170,5 @@ func (b *Bot) reapWorker() {
 		} else {
 			fmt.Printf("[reap] %s #%s: deleted %d messages\n", ch.Channel.ID, ch.Channel.Name, count)
 		}
-		b.QueueReap(ch)
 	}
 }

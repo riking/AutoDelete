@@ -29,7 +29,7 @@ func New(c Config) *Bot {
 		channels: make(map[string]*ManagedChannel),
 		reaper:   newReapQueue(),
 	}
-	go b.reapWorker()
+	go b.reapScheduler()
 	return b
 }
 

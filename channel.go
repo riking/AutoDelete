@@ -322,12 +322,7 @@ func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 
 const errCodeBulkDeleteOld = 50034
 
-func (c *ManagedChannel) Reap() (int, error) {
-	msgs := c.collectMessagesToDelete()
-	if len(msgs) == 0 {
-		fmt.Println("no messages to clean")
-		return 0, nil
-	}
+func (c *ManagedChannel) Reap(msgs []string) (int, error) {
 	var err error
 	count := 0
 
