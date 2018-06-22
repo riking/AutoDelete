@@ -104,7 +104,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		return
 	}
 
-	_, err := b.s.ChannelMessagesPinned(m.ChannelID)
+	_, err = b.s.ChannelMessagesPinned(m.ChannelID)
 	hasPins := err == nil
 
 	var confMessage *discordgo.Message
