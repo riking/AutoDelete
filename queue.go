@@ -55,8 +55,9 @@ func (pq priorityQueue) Peek() *pqItem {
 }
 
 type reapWorkItem struct {
-	ch   *ManagedChannel
-	msgs []string
+	ch      *ManagedChannel
+	msgs    []string
+	delayed bool
 }
 
 type reapQueue struct {
@@ -148,8 +149,12 @@ func (b *Bot) reapScheduler() {
 	for {
 		ch := b.reaper.WaitForNext()
 		msgs := ch.collectMessagesToDelete()
-		b.reaper.workCh <- reapWorkItem{ch: ch, msgs: msgs}
-		b.QueueReap(ch)
+		nextTS := ch.GetNextDeletionTime()
+		delayed := nextTS.Before(time.Now().Add(10 * time.Second))
+		b.reaper.workCh <- reapWorkItem{ch: ch, msgs: msgs, delayed: delayed}
+		if !delayed {
+			b.QueueReap(ch)
+		}
 	}
 }
 
@@ -165,10 +170,15 @@ func (b *Bot) reapWorker() {
 		if err != nil {
 			fmt.Printf("[reap] %s #%s: deleted %d, got error: %v\n", ch.Channel.ID, ch.Channel.Name, count, err)
 			ch.LoadBacklog()
+			work.delayed = true
 		} else if count == -1 {
 			fmt.Printf("[reap] %s #%s: doing single-message delete\n", ch.Channel.ID, ch.Channel.Name)
 		} else {
 			fmt.Printf("[reap] %s #%s: deleted %d messages\n", ch.Channel.ID, ch.Channel.Name, count)
+		}
+
+		if work.delayed {
+			b.QueueReap(ch)
 		}
 	}
 }
