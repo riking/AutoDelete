@@ -55,9 +55,8 @@ func (pq priorityQueue) Peek() *pqItem {
 }
 
 type reapWorkItem struct {
-	ch      *ManagedChannel
-	msgs    []string
-	delayed bool
+	ch   *ManagedChannel
+	msgs []string
 }
 
 type reapQueue struct {
@@ -174,6 +173,7 @@ func (b *Bot) reapWorker() {
 		ch := work.ch
 		msgs := work.msgs
 
+		fmt.Printf("[reap] %s #%s: deleting %d messages\n", ch.Channel.ID, ch.Channel, Name, len(msgs))
 		count, err := ch.Reap(msgs)
 		if b.handleCriticalPermissionsErrors(ch.Channel.ID, err) {
 			continue
@@ -181,11 +181,8 @@ func (b *Bot) reapWorker() {
 		if err != nil {
 			fmt.Printf("[reap] %s #%s: deleted %d, got error: %v\n", ch.Channel.ID, ch.Channel.Name, count, err)
 			ch.LoadBacklog()
-			work.delayed = true
 		} else if count == -1 {
 			fmt.Printf("[reap] %s #%s: doing single-message delete\n", ch.Channel.ID, ch.Channel.Name)
-		} else {
-			fmt.Printf("[reap] %s #%s: deleted %d messages\n", ch.Channel.ID, ch.Channel.Name, count)
 		}
 
 		b.reaper.curMu.Lock()
