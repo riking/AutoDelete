@@ -85,32 +85,42 @@ func (c *ManagedChannel) LoadBacklog() error {
 		fmt.Println("could not load backlog for", c.Channel.ID, err)
 		return err
 	}
-	pins, err := c.loadPins()
-	if err != nil {
-		fmt.Println("could not load pins for", c.Channel.ID, err)
+	pins, pinsErr := c.loadPins()
+	if pinsErr != nil {
+		fmt.Println("could not load pins for", c.Channel.ID, pinsErr)
 		//return err
 	}
 
 	defer c.bot.QueueReap(c) // requires mutex unlocked
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.liveMessages = make([]smallMessage, 0, len(msgs))
-	c.pinMessages = make([]smallMessage, 0, len(pins))
-	quickPinLookup := make(map[string]struct{})
-	for i := range pins {
-		ts, err := pins[i].Timestamp.Parse()
-		if err != nil {
-			panic("Timestamp format change")
+
+	var newPinMessages []smallMessage
+	var quickPinLookup = make(map[string]struct{})
+	if pinsErr != nil {
+		newPinMessages = c.pinMessages
+		for _, v := range newPinMessages {
+			quickPinLookup[v.MessageID] = struct{}{}
 		}
-		if ts.IsZero() {
-			continue
+	} else {
+		newPinMessages = make([]smallMessage, 0, len(pins))
+		for i := range pins {
+			ts, err := pins[i].Timestamp.Parse()
+			if err != nil {
+				panic("Timestamp format change")
+			}
+			if ts.IsZero() {
+				continue
+			}
+			newPinMessages = append(newPinMessages, smallMessage{
+				MessageID: pins[i].ID,
+				PostedAt:  ts,
+			})
+			quickPinLookup[pins[i].ID] = struct{}{}
 		}
-		c.pinMessages = append(c.pinMessages, smallMessage{
-			MessageID: pins[i].ID,
-			PostedAt:  ts,
-		})
-		quickPinLookup[pins[i].ID] = struct{}{}
 	}
+
+	c.liveMessages = make([]smallMessage, 0, len(msgs))
 	// Iterate backwards so we swap the order
 	for i := len(msgs); i > 0; i-- {
 		v := msgs[i-1]

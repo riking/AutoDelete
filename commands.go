@@ -104,6 +104,9 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		return
 	}
 
+	_, err := b.s.ChannelMessagesPinned(m.ChannelID)
+	hasPins := err == nil
+
 	var confMessage *discordgo.Message
 
 	if duration != 0 && count != 0 {
@@ -128,7 +131,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		ConfMessageID: confMessage.ID,
 		LiveTime:      duration,
 		MaxMessages:   count,
-		HasPins:       false,
+		HasPins:       hasPins,
 		IsDonor:       false, // TODO
 	}
 
