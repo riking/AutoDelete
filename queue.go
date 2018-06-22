@@ -65,15 +65,19 @@ type reapQueue struct {
 	cond   *sync.Cond
 	timer  *time.Timer
 	workCh chan reapWorkItem
+
+	curMu   sync.Mutex
+	curWork map[*ManagedChannel]struct{}
 }
 
 func newReapQueue() *reapQueue {
 	var locker sync.Mutex
 	q := &reapQueue{
-		items:  new(priorityQueue),
-		cond:   sync.NewCond(&locker),
-		timer:  time.NewTimer(0),
-		workCh: make(chan reapWorkItem),
+		items:   new(priorityQueue),
+		cond:    sync.NewCond(&locker),
+		timer:   time.NewTimer(0),
+		workCh:  make(chan reapWorkItem),
+		curWork: make(map[*ManagedChannel]struct{}),
 	}
 	go func() {
 		// Signal the condition variable every time the timer expires.
@@ -148,13 +152,20 @@ func (b *Bot) reapScheduler() {
 
 	for {
 		ch := b.reaper.WaitForNext()
-		msgs := ch.collectMessagesToDelete()
-		nextTS := ch.GetNextDeletionTime()
-		delayed := nextTS.Before(time.Now().Add(10 * time.Second))
-		b.reaper.workCh <- reapWorkItem{ch: ch, msgs: msgs, delayed: delayed}
-		if !delayed {
-			b.QueueReap(ch)
+
+		b.reaper.curMu.Lock()
+		_, channelAlreadyBeingDeleted := b.reaper.curWork[ch]
+		if !channelAlreadyBeingDeleted {
+			b.reaper.curWork[ch] = struct{}{}
 		}
+		b.reaper.curMu.Unlock()
+
+		if channelAlreadyBeingDeleted {
+			continue
+		}
+
+		msgs := ch.collectMessagesToDelete()
+		b.reaper.workCh <- reapWorkItem{ch: ch, msgs: msgs}
 	}
 }
 
@@ -177,8 +188,9 @@ func (b *Bot) reapWorker() {
 			fmt.Printf("[reap] %s #%s: deleted %d messages\n", ch.Channel.ID, ch.Channel.Name, count)
 		}
 
-		if work.delayed {
-			b.QueueReap(ch)
-		}
+		b.reaper.curMu.Lock()
+		delete(b.reaper.curWork, ch)
+		b.reaper.curMu.Unlock()
+		b.QueueReap(ch)
 	}
 }
