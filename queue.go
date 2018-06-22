@@ -173,7 +173,7 @@ func (b *Bot) reapWorker() {
 		ch := work.ch
 		msgs := work.msgs
 
-		fmt.Printf("[reap] %s #%s: deleting %d messages\n", ch.Channel.ID, ch.Channel, Name, len(msgs))
+		fmt.Printf("[reap] %s #%s: deleting %d messages\n", ch.Channel.ID, ch.Channel.Name, len(msgs))
 		count, err := ch.Reap(msgs)
 		if b.handleCriticalPermissionsErrors(ch.Channel.ID, err) {
 			continue
