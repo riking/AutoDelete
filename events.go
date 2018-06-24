@@ -126,8 +126,6 @@ func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
 		if err != nil {
 			fmt.Println("error loading configs:", err)
 		}
-
-		b.LoadAllBacklogs()
 	}()
 }
 
