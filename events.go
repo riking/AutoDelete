@@ -54,17 +54,31 @@ func (b *Bot) HandleMentions(s *discordgo.Session, m *discordgo.MessageCreate) {
 	plainMention := "<@" + b.me.ID + ">"
 	nickMention := "<@!" + b.me.ID + ">"
 
+	ch, guild := b.GetMsgChGuild(m.Message)
+	if guild == nil {
+		fmt.Printf("[ cmd] got mention from %s (%s#%s) in unknown channel %s: %s\n",
+			m.Author.Mention(), m.Author.Username, m.Author.Discriminator,
+			m.Message.ChannelID, m.Message.Content)
+		return
+	}
+
 	if ((split[0] == plainMention) ||
 		(split[0] == nickMention)) && len(split) > 1 {
 		cmd := split[1]
 		fun, ok := commands[cmd]
 		if ok {
-			fmt.Println("got command:", split)
+			fmt.Printf("[ cmd] got command from %s (%s#%s) in %s (id %s) guild %s (id %s):\n  %v\n",
+				m.Message.Author.Mention(), m.Message.Author.Username, m.Message.Author.Discriminator,
+				ch.Name, ch.ID, guild.Name, guild.ID,
+				split)
 			go fun(b, m.Message, split[2:])
 			return
 		}
 	}
-	fmt.Println("got non-command mention:", m.Message.Content)
+	fmt.Printf("[ cmd] got non-command from %s (%s#%s) in %s (id %s) guild %s (id %s):\n  %s\n",
+		m.Message.Author.Mention(), m.Message.Author.Username, m.Message.Author.Discriminator,
+		ch.Name, ch.ID, guild.Name, guild.ID,
+		m.Message.Content)
 }
 
 func (b *Bot) OnMessage(s *discordgo.Session, m *discordgo.MessageCreate) {

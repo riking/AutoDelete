@@ -18,6 +18,18 @@ For more help, join the help server: <https://discord.gg/FUGn8yE>`
 
 const adminUserID = `82592645502734336`
 
+func (b *Bot) GetMsgChGuild(m *discordgo.Message) (*discordgo.Channel, *discordgo.Guild) {
+	ch, err := b.s.Channel(m.ChannelID)
+	if err != nil {
+		return nil, nil
+	}
+	guild, err := b.s.Guild(ch.GuildID)
+	if err != nil {
+		return nil, nil
+	}
+	return ch, guild
+}
+
 func CommandHelp(b *Bot, m *discordgo.Message, rest []string) {
 	b.s.ChannelMessageSend(m.ChannelID, textHelp)
 }
@@ -27,21 +39,15 @@ func CommandAdminHelp(b *Bot, m *discordgo.Message, rest []string) {
 	if err != nil {
 		plainContent = m.Content
 	}
-	var channelName, guildID, guildName string
-	ch, err := b.s.Channel(m.ChannelID)
-	if err == nil {
-		channelName = ch.Name
-		guildID = ch.GuildID
-		guild, err := b.s.Guild(ch.GuildID)
-		if err == nil {
-			guildName = guild.Name
-		}
+	ch, guild := b.GetMsgChGuild(m)
+	if guild == nil {
+		return
 	}
 	b.ReportToLogChannel(fmt.Sprintf(
 		"Adminhelp command from %s (%s#%s) in #%s (ch id %s) of '%s' (guild id %s):\n%s",
 		m.Author.Mention(), m.Author.Username, m.Author.Discriminator,
-		channelName, m.ChannelID,
-		guildName, guildID,
+		ch.Name, m.ChannelID,
+		guild.Name, guild.ID,
 		plainContent,
 	))
 }
