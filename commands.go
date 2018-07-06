@@ -146,6 +146,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		fmt.Println("Error:", err)
 		b.s.ChannelMessageSend(m.ChannelID, "Encountered error, settings may or may not have saved.\n"+err.Error())
 	}
+	fmt.Println("[load] Changed settings for channel", m.ChannelID, confMessage.Content)
 }
 
 func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {

@@ -208,6 +208,10 @@ func (b *Bot) LoadChannelConfigs() error {
 
 		errHandled := b.handleCriticalPermissionsErrors(chID, err)
 
+		if os.IsNotExist(err) {
+			fmt.Printf("Error loading configuration for %s: configuration file does not exist\n", chID)
+			errHandled = true
+		}
 		if err != nil && !errHandled {
 			channelObj, _ := b.s.Channel(chID)
 			if channelObj != nil {
@@ -238,7 +242,7 @@ func (b *Bot) loadChannel(channelID string) error {
 		b.mu.Lock()
 		b.channels[channelID] = nil
 		b.mu.Unlock()
-		return nil
+		return os.ErrNotExist
 	} else if err != nil {
 		return err
 	}
