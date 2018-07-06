@@ -263,6 +263,7 @@ func (b *Bot) loadChannel(channelID string) error {
 		return err
 	}
 	b.mu.Lock()
+	// TODO - multiple loadChannels() can happen at the same time (due to incoming messages)
 	b.channels[channelID] = mCh
 	b.mu.Unlock()
 
