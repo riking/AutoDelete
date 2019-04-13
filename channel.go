@@ -194,7 +194,18 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 // UpdatePins gets called in two situations - a pin was added, a pin was
 // removed, or more than one of those happened too fast for us to notice.
 func (c *ManagedChannel) UpdatePins(newLpts string) {
-	//defer c.LoadBacklog()
+	var dropMsgs []string
+	defer func() {
+		// This is not the best, as the pins will be deleted
+		// non-chronologically, but it avoids chopping the backlog back to 100
+		// messages.
+		for _, v := range dropMsgs {
+			msg, err := c.bot.s.ChannelMessage(c.Channel.ID, v)
+			if err == nil {
+				c.AddMessage(msg)
+			}
+		}
+	}()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -213,16 +224,15 @@ func (c *ManagedChannel) UpdatePins(newLpts string) {
 		newKeep[v] = true
 	}
 
-	fmt.Println("[pins] update for", c.Channel.ID, c.Channel.Name, "-", len(newKeep), "keep")
+	for id := range c.keepLookup {
+		if !newKeep[id] {
+			dropMsgs = append(dropMsgs, id)
+		}
+	}
+
+	fmt.Println("[pins] update for", c.Channel.ID, c.Channel.Name, "-", len(newKeep), "keep", len(dropMsgs), "drop")
 	c.keepLookup = newKeep
-	// if len(remPins) > 0 || len(newPins) > 0 {
-	// c.LoadBacklog()
-	// }
-	// Doesn't work -- AddMessage works chronologically
-	// for msgID := range remPins {
-	// 	msg := c.b.s.ChannelMessage(c.Channel.ID, msgID)
-	// 	c.AddMessage(msg)
-	// }
+	// deferred function calls AddMessage for each of dropMsgs
 }
 
 // DoNotDeleteMessage marks a message ID as not for deletion.
