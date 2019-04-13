@@ -2,18 +2,17 @@ package autodelete
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"gopkg.in/yaml.v2"
 )
 
 type Bot struct {
 	Config
+	storage Storage
+
 	s  *discordgo.Session
 	me *discordgo.User
 
@@ -48,7 +47,7 @@ type Config struct {
 	//} `yaml:"db,flow"`
 }
 
-type managedChannelMarshal struct {
+type ManagedChannelMarshal struct {
 	ID      string `yaml:"id"`
 	GuildID string `yaml:"guild_id"`
 
@@ -63,16 +62,13 @@ type managedChannelMarshal struct {
 	KeepMessages  []string `yaml:"keep_messages"`
 }
 
-func internalMigrateConfig(c managedChannelMarshal) managedChannelMarshal {
+func internalMigrateConfig(c ManagedChannelMarshal) ManagedChannelMarshal {
 	if c.ConfMessageID != "" {
 		c.KeepMessages = []string{c.ConfMessageID}
 		c.ConfMessageID = ""
 	}
 	return c
 }
-
-const pathChannelConfDir = "./data"
-const pathChannelConfig = "./data/%s.yml"
 
 func (b *Bot) ReportToLogChannel(msg string) {
 	_, err := b.s.ChannelMessageSend(b.Config.ErrorLogCh, msg)
@@ -121,41 +117,25 @@ func (b *Bot) SaveChannelConfig(channelID string) error {
 	return b.saveChannelConfig(manCh.Export())
 }
 
-func (b *Bot) saveChannelConfig(conf managedChannelMarshal) error {
-	conf = internalMigrateConfig(conf)
-	by, err := yaml.Marshal(conf)
-	if err != nil {
-		panic(err)
-	}
-	fileName := fmt.Sprintf(pathChannelConfig, conf.ID)
-	f, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	f.Write(by)
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-	return nil
+func (b *Bot) saveChannelConfig(conf ManagedChannelMarshal) error {
+	return b.storage.SaveChannel(conf)
 }
 
 func (b *Bot) deleteChannelConfig(chID string) error {
-	fileName := fmt.Sprintf(pathChannelConfig, chID)
-	err := os.Remove(fileName)
+	err := b.storage.DeleteChannel(chID)
 	if err != nil {
 		fmt.Println("failed to delete channel config for", chID, ":", err)
-		// do NOT return
+		// continue
 	}
 
 	b.mu.Lock()
 	delete(b.channels, chID)
 	b.mu.Unlock()
-	return nil
+	return err
 }
 
 // Change the config to the provided one.
-func (b *Bot) setChannelConfig(conf managedChannelMarshal) error {
+func (b *Bot) setChannelConfig(conf ManagedChannelMarshal) error {
 	err := b.saveChannelConfig(conf)
 	if err != nil {
 		return err
@@ -208,16 +188,8 @@ func (b *Bot) handleCriticalPermissionsErrors(channelID string, srcErr error) bo
 }
 
 func (b *Bot) LoadChannelConfigs() error {
-	files, err := ioutil.ReadDir(pathChannelConfDir)
-	if err != nil {
-		return err
-	}
-	for _, v := range files {
-		n := v.Name()
-		if !strings.HasSuffix(n, ".yml") {
-			continue
-		}
-		chID := strings.TrimSuffix(n, ".yml")
+	channels, err := b.storage.ListChannels()
+	for _, chID := range channels {
 		err = b.loadChannel(chID)
 
 		errHandled := b.handleCriticalPermissionsErrors(chID, err)
@@ -250,8 +222,7 @@ func (b *Bot) loadChannel(channelID string) error {
 		return err
 	}
 
-	fileName := fmt.Sprintf(pathChannelConfig, channelID)
-	f, err := os.Open(fileName)
+	conf, err := b.storage.GetChannel(channelID)
 	if os.IsNotExist(err) {
 		b.mu.Lock()
 		b.channels[channelID] = nil
@@ -260,18 +231,7 @@ func (b *Bot) loadChannel(channelID string) error {
 	} else if err != nil {
 		return err
 	}
-	by, err := ioutil.ReadAll(f)
-	f.Close()
-	if err != nil {
-		return err
-	}
-	var conf managedChannelMarshal
-	err = yaml.Unmarshal(by, &conf)
-	if err != nil {
-		return err
-	}
 
-	conf = internalMigrateConfig(conf)
 	conf.ID = channelID
 
 	mCh, err := InitChannel(b, conf)

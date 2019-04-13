@@ -35,11 +35,11 @@ type ManagedChannel struct {
 	keepLookup   map[string]bool
 }
 
-func (c *ManagedChannel) Export() managedChannelMarshal {
+func (c *ManagedChannel) Export() ManagedChannelMarshal {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	return managedChannelMarshal{
+	return ManagedChannelMarshal{
 		ID:             c.Channel.ID,
 		GuildID:        c.Channel.GuildID,
 		LiveTime:       c.MessageLiveTime,
@@ -50,7 +50,7 @@ func (c *ManagedChannel) Export() managedChannelMarshal {
 	}
 }
 
-func InitChannel(b *Bot, chConf managedChannelMarshal) (*ManagedChannel, error) {
+func InitChannel(b *Bot, chConf ManagedChannelMarshal) (*ManagedChannel, error) {
 	disCh, err := b.s.Channel(chConf.ID)
 	if err != nil {
 		return nil, err

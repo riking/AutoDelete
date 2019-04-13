@@ -132,7 +132,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		return
 	}
 
-	newManagedChannel := managedChannelMarshal{
+	newManagedChannel := ManagedChannelMarshal{
 		ID:           m.ChannelID,
 		KeepMessages: []string{confMessage.ID},
 		LiveTime:     duration,
