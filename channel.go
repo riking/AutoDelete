@@ -19,6 +19,7 @@ type smallMessage struct {
 type ManagedChannel struct {
 	bot     *Bot
 	Channel *discordgo.Channel
+	GuildID string
 
 	mu sync.Mutex
 	// Messages posted to the channel get deleted after
@@ -40,6 +41,7 @@ func (c *ManagedChannel) Export() managedChannelMarshal {
 
 	return managedChannelMarshal{
 		ID:             c.Channel.ID,
+		GuildID:        c.Channel.GuildID,
 		LiveTime:       c.MessageLiveTime,
 		MaxMessages:    c.MaxMessages,
 		LastSentUpdate: c.LastSentUpdate,
@@ -56,6 +58,7 @@ func InitChannel(b *Bot, chConf managedChannelMarshal) (*ManagedChannel, error) 
 	return &ManagedChannel{
 		bot:             b,
 		Channel:         disCh,
+		GuildID:         disCh.GuildID,
 		MessageLiveTime: chConf.LiveTime,
 		MaxMessages:     chConf.MaxMessages,
 		LastSentUpdate:  chConf.LastSentUpdate,

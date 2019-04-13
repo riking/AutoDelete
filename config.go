@@ -49,7 +49,8 @@ type Config struct {
 }
 
 type managedChannelMarshal struct {
-	ID string `yaml:"id"`
+	ID      string `yaml:"id"`
+	GuildID string `yaml:"guild_id"`
 
 	LiveTime       time.Duration `yaml:"live_time"`
 	MaxMessages    int           `yaml:"max_messages"`
