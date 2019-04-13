@@ -25,6 +25,7 @@ type Bot struct {
 func New(c Config) *Bot {
 	b := &Bot{
 		Config:   c,
+		storage:  &DiskStorage{},
 		channels: make(map[string]*ManagedChannel),
 		reaper:   newReapQueue(),
 	}
