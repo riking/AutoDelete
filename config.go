@@ -19,17 +19,23 @@ type Bot struct {
 	mu       sync.RWMutex
 	channels map[string]*ManagedChannel
 
+	// The reapQueue for deleting messages.
 	reaper *reapQueue
+	// The reapQueue for channels that encountered a rate-limit error when we
+	// tried to load them.
+	loadRetries *reapQueue
 }
 
 func New(c Config) *Bot {
 	b := &Bot{
-		Config:   c,
-		storage:  &DiskStorage{},
-		channels: make(map[string]*ManagedChannel),
-		reaper:   newReapQueue(),
+		Config:      c,
+		storage:     &DiskStorage{},
+		channels:    make(map[string]*ManagedChannel),
+		reaper:      newReapQueue(),
+		loadRetries: newReapQueue(),
 	}
-	go b.reapScheduler()
+	go reapScheduler(b.reaper, 4, b.reapWorker)
+	go reapScheduler(b.loadRetries, 2, b.loadWorker)
 	return b
 }
 
@@ -244,10 +250,6 @@ func (b *Bot) loadChannel(channelID string) error {
 	b.channels[channelID] = mCh
 	b.mu.Unlock()
 
-	err = mCh.LoadBacklog()
-	if err != nil {
-		fmt.Println("Loading backlog for", channelID, err)
-		return err
-	}
+	b.QueueLoadBacklog(mCh, false)
 	return nil
 }
