@@ -5,26 +5,19 @@
 package internal
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
-
-	"golang.org/x/net/context"
 )
 
-func TestRegisterBrokenAuthHeaderProvider(t *testing.T) {
-	RegisterBrokenAuthHeaderProvider("https://aaa.com/")
-	tokenURL := "https://aaa.com/token"
-	if providerAuthHeaderWorks(tokenURL) {
-		t.Errorf("got %q as unbroken; want broken", tokenURL)
-	}
-}
-
-func TestRetrieveTokenBustedNoSecret(t *testing.T) {
+func TestRetrieveToken_InParams(t *testing.T) {
+	ResetAuthCache()
 	const clientID = "client-id"
-
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got, want := r.FormValue("client_id"), clientID; got != want {
 			t.Errorf("client_id = %q; want %q", got, want)
@@ -32,73 +25,53 @@ func TestRetrieveTokenBustedNoSecret(t *testing.T) {
 		if got, want := r.FormValue("client_secret"), ""; got != want {
 			t.Errorf("client_secret = %q; want empty", got)
 		}
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"access_token": "ACCESS_TOKEN", "token_type": "bearer"}`)
 	}))
 	defer ts.Close()
-
-	RegisterBrokenAuthHeaderProvider(ts.URL)
-	_, err := RetrieveToken(context.Background(), clientID, "", ts.URL, url.Values{})
+	_, err := RetrieveToken(context.Background(), clientID, "", ts.URL, url.Values{}, AuthStyleInParams)
 	if err != nil {
 		t.Errorf("RetrieveToken = %v; want no error", err)
 	}
 }
 
-func Test_providerAuthHeaderWorks(t *testing.T) {
-	for _, p := range brokenAuthHeaderProviders {
-		if providerAuthHeaderWorks(p) {
-			t.Errorf("got %q as unbroken; want broken", p)
-		}
-		p := fmt.Sprintf("%ssomesuffix", p)
-		if providerAuthHeaderWorks(p) {
-			t.Errorf("got %q as unbroken; want broken", p)
-		}
-	}
-	p := "https://api.not-in-the-list-example.com/"
-	if !providerAuthHeaderWorks(p) {
-		t.Errorf("got %q as unbroken; want broken", p)
-	}
-}
-
-func TestProviderAuthHeaderWorksDomain(t *testing.T) {
-	tests := []struct {
-		tokenURL  string
-		wantWorks bool
-	}{
-		{"https://dev-12345.okta.com/token-url", false},
-		{"https://dev-12345.oktapreview.com/token-url", false},
-		{"https://dev-12345.okta.org/token-url", true},
-		{"https://foo.bar.force.com/token-url", false},
-		{"https://foo.force.com/token-url", false},
-		{"https://force.com/token-url", true},
-	}
-
-	for _, test := range tests {
-		got := providerAuthHeaderWorks(test.tokenURL)
-		if got != test.wantWorks {
-			t.Errorf("providerAuthHeaderWorks(%q) = %v; want %v", test.tokenURL, got, test.wantWorks)
-		}
-	}
-}
-
 func TestRetrieveTokenWithContexts(t *testing.T) {
+	ResetAuthCache()
 	const clientID = "client-id"
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"access_token": "ACCESS_TOKEN", "token_type": "bearer"}`)
+	}))
 	defer ts.Close()
 
-	_, err := RetrieveToken(context.Background(), clientID, "", ts.URL, url.Values{})
+	_, err := RetrieveToken(context.Background(), clientID, "", ts.URL, url.Values{}, AuthStyleUnknown)
 	if err != nil {
 		t.Errorf("RetrieveToken (with background context) = %v; want no error", err)
 	}
 
-	ctx, cancelfunc := context.WithCancel(context.Background())
-
+	retrieved := make(chan struct{})
 	cancellingts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cancelfunc()
+		<-retrieved
 	}))
 	defer cancellingts.Close()
 
-	_, err = RetrieveToken(ctx, clientID, "", cancellingts.URL, url.Values{})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = RetrieveToken(ctx, clientID, "", cancellingts.URL, url.Values{}, AuthStyleUnknown)
+	close(retrieved)
 	if err == nil {
 		t.Errorf("RetrieveToken (with cancelled context) = nil; want error")
+	}
+}
+
+func TestExpiresInUpperBound(t *testing.T) {
+	var e expirationTime
+	if err := e.UnmarshalJSON([]byte(fmt.Sprint(int64(math.MaxInt32) + 1))); err != nil {
+		t.Fatal(err)
+	}
+	const want = math.MaxInt32
+	if e != want {
+		t.Errorf("expiration time = %v; want %v", e, want)
 	}
 }
