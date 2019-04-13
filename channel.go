@@ -92,6 +92,13 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 	}
 }
 
+func (c *ManagedChannel) LoadBacklogNow() {
+	err := c.LoadBacklog()
+	if isRetryableLoadError(err) {
+		c.bot.QueueLoadBacklog(c, true)
+	}
+}
+
 func (c *ManagedChannel) LoadBacklog() error {
 	msgs, err := c.bot.s.ChannelMessages(c.Channel.ID, 100, "", "", "")
 	if err != nil {
@@ -161,7 +168,7 @@ func (b *Bot) LoadAllBacklogs() {
 	b.mu.RLock()
 	for _, v := range b.channels {
 		if v != nil {
-			b.QueueLoadBacklog(v, false)
+			go v.LoadBacklogNow()
 		}
 	}
 	b.mu.RUnlock()

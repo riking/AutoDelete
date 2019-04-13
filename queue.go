@@ -188,11 +188,8 @@ func (b *Bot) loadWorker(q *reapQueue) {
 		delete(q.curWork, ch)
 		q.curMu.Unlock()
 
-		if err != nil {
-			// Only error to retry is a CloudFlare HTML 429
-			if strings.Contains(err.Error(), "rate limit unmarshal error") {
-				b.QueueLoadBacklog(ch, true)
-			}
+		if isRetryableLoadError(err) {
+			b.QueueLoadBacklog(ch, true)
 		}
 	}
 }
@@ -219,4 +216,15 @@ func (b *Bot) reapWorker(q *reapQueue) {
 		q.curMu.Unlock()
 		b.QueueReap(ch)
 	}
+}
+
+func isRetryableLoadError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Only error to retry is a CloudFlare HTML 429
+	if strings.Contains(err.Error(), "rate limit unmarshal error") {
+		return true
+	}
+	return false
 }
