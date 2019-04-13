@@ -49,13 +49,25 @@ type Config struct {
 }
 
 type managedChannelMarshal struct {
-	ID             string        `yaml:"id"`
-	ConfMessageID  string        `yaml:"conf_message_id"`
+	ID string `yaml:"id"`
+
 	LiveTime       time.Duration `yaml:"live_time"`
 	MaxMessages    int           `yaml:"max_messages"`
 	LastSentUpdate int           `yaml:"last_critical_msg"`
 	HasPins        bool          `yaml:"has_pins,omitempty"`
 	IsDonor        bool          `yaml:"is_donor,omitempty"`
+
+	// ConfMessageID is deprecated.
+	ConfMessageID string   `yaml:"conf_message_id,omitempty"`
+	KeepMessages  []string `yaml:"keep_messages"`
+}
+
+func internalMigrateConfig(c managedChannelMarshal) managedChannelMarshal {
+	if c.ConfMessageID != "" {
+		c.KeepMessages = []string{c.ConfMessageID}
+		c.ConfMessageID = ""
+	}
+	return c
 }
 
 const pathChannelConfDir = "./data"
@@ -109,6 +121,7 @@ func (b *Bot) SaveChannelConfig(channelID string) error {
 }
 
 func (b *Bot) saveChannelConfig(conf managedChannelMarshal) error {
+	conf = internalMigrateConfig(conf)
 	by, err := yaml.Marshal(conf)
 	if err != nil {
 		panic(err)
@@ -257,7 +270,9 @@ func (b *Bot) loadChannel(channelID string) error {
 		return err
 	}
 
+	conf = internalMigrateConfig(conf)
 	conf.ID = channelID
+
 	mCh, err := InitChannel(b, conf)
 	if err != nil {
 		return err
