@@ -18,6 +18,9 @@ For more help, join the help server: <https://discord.gg/FUGn8yE>`
 
 const adminUserID = `82592645502734336`
 
+const emojiBusy = `🔄`
+const emojiDone = `✅`
+
 func (b *Bot) GetMsgChGuild(m *discordgo.Message) (*discordgo.Channel, *discordgo.Guild) {
 	ch, err := b.s.Channel(m.ChannelID)
 	if err != nil {
@@ -132,6 +135,11 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		return
 	}
 
+	emojiErr := b.s.MessageReactionAdd(m.ChannelID, confMessage.ID, emojiBusy)
+	if emojiErr != nil {
+		fmt.Println("[Warn]", "could not react to config reply", emojiErr)
+	}
+
 	newManagedChannel := managedChannelMarshal{
 		ID:           m.ChannelID,
 		KeepMessages: []string{confMessage.ID},
@@ -147,6 +155,16 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		b.s.ChannelMessageSend(m.ChannelID, "Encountered error, settings may or may not have saved.\n"+err.Error())
 	}
 	fmt.Println("[load] Changed settings for channel", m.ChannelID, confMessage.Content)
+	if emojiErr == nil {
+		channelID := m.ChannelID
+		msgID := confMessage.ID
+		b.s.MessageReactionRemove(channelID, msgID, emojiBusy, "@me")
+		emojiErr = b.s.MessageReactionAdd(channelID, msgID, emojiDone)
+		go func() {
+			time.Sleep(30 * time.Second)
+			b.s.MessageReactionRemove(channelID, msgID, emojiDone, "@me")
+		}()
+	}
 }
 
 func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {
