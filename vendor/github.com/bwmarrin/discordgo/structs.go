@@ -220,6 +220,10 @@ type Channel struct {
 	// guaranteed to be an ID of a valid message.
 	LastMessageID string `json:"last_message_id"`
 
+	// The timestamp at which the channel's pins were last edited,
+	// or nil if there are no pinned messages in the channel.
+	LastPinTimestamp *Timestamp `json:"last_pin_timestamp"`
+
 	// Whether the channel is marked as NSFW.
 	NSFW bool `json:"nsfw"`
 
