@@ -149,6 +149,7 @@ func (s *Session) request(method, urlStr, contentType string, b []byte, bucketID
 		err = json.Unmarshal(response, &rl)
 		if err != nil {
 			s.log(LogError, "rate limit unmarshal error, %s", err)
+			fmt.Fprintln(os.Stderr, string(response))
 			return
 		}
 		s.log(LogInformational, "Rate Limiting %s, retry in %d", urlStr, rl.RetryAfter)

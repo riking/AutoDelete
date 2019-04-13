@@ -1,6 +1,7 @@
 package autodelete
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -79,7 +80,14 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 		return nil, nil
 	} else {
 		fmt.Println("[load]", "loading pins for", c.Channel.ID)
-		return c.bot.s.ChannelMessagesPinned(c.Channel.ID)
+		// Inlined ChannelMessagesPinned with the ratelimit bucket replaced
+		body, err := c.bot.s.RequestWithBucketID("GET", discordgo.EndpointChannelMessagesPins(c.Channel.ID), nil, "/custom/pinsGlobal")
+		if err != nil {
+			return nil, err
+		}
+		var st []*discordgo.Message
+		err = json.Unmarshal(body, &st)
+		return st, err
 	}
 }
 
