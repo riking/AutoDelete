@@ -24,15 +24,14 @@ type ManagedChannel struct {
 	// Messages posted to the channel get deleted after
 	MessageLiveTime time.Duration
 	MaxMessages     int
-	ConfMessageID   string
+	KeepMessages    []string
 	// if lower than CriticalMsgSequence, need to send one
 	LastSentUpdate int
-	HasPins        bool
 	IsDonor        bool
 	// if false, need to check channel history for messages
 	isStarted    chan struct{}
 	liveMessages []smallMessage
-	pinMessages  []smallMessage
+	keepLookup   map[string]bool
 }
 
 func (c *ManagedChannel) Export() managedChannelMarshal {
@@ -44,8 +43,7 @@ func (c *ManagedChannel) Export() managedChannelMarshal {
 		LiveTime:       c.MessageLiveTime,
 		MaxMessages:    c.MaxMessages,
 		LastSentUpdate: c.LastSentUpdate,
-		ConfMessageID:  c.ConfMessageID,
-		HasPins:        c.HasPins,
+		KeepMessages:   c.KeepMessages,
 		IsDonor:        c.IsDonor,
 	}
 }
@@ -61,33 +59,42 @@ func InitChannel(b *Bot, chConf managedChannelMarshal) (*ManagedChannel, error) 
 		MessageLiveTime: chConf.LiveTime,
 		MaxMessages:     chConf.MaxMessages,
 		LastSentUpdate:  chConf.LastSentUpdate,
-		ConfMessageID:   chConf.ConfMessageID,
-		HasPins:         chConf.HasPins,
+		KeepMessages:    chConf.KeepMessages,
 		IsDonor:         chConf.IsDonor,
 		isStarted:       make(chan struct{}),
 		liveMessages:    nil,
+		keepLookup:      make(map[string]bool),
 	}, nil
 }
 
 func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
-	c.mu.Lock()
-	hasPins := c.HasPins
-	c.mu.Unlock()
-	if !hasPins {
-		return nil, nil
+	disCh, err := c.bot.s.Channel(c.Channel.ID)
+	if err != nil {
+		return nil, err
 	}
-	return c.bot.s.ChannelMessagesPinned(c.Channel.ID)
+	if disCh.LastPinTimestamp == nil {
+		return nil, nil
+	} else {
+		fmt.Println("[load]", "loading pins for", c.Channel.ID)
+		return c.bot.s.ChannelMessagesPinned(c.Channel.ID)
+	}
 }
 
 func (c *ManagedChannel) LoadBacklog() error {
 	msgs, err := c.bot.s.ChannelMessages(c.Channel.ID, 100, "", "", "")
 	if err != nil {
-		fmt.Println("could not load backlog for", c.Channel.ID, err)
+		fmt.Println("[ERR ] could not load backlog for", c.Channel.ID, err)
 		return err
 	}
 	pins, pinsErr := c.loadPins()
 	if pinsErr != nil {
-		fmt.Println("could not load pins for", c.Channel.ID, pinsErr)
+		fmt.Println("[ERR ] could not load pins for", c.Channel.ID, pinsErr)
+
+		// experiment with a notice
+		c.bot.s.ChannelMessageSend(c.Channel.ID,
+			":warning: Failed to load channel pins, may accidentally delete them",
+		)
+		// TODO(riking): reschedule the load
 		//return err
 	}
 
@@ -95,28 +102,15 @@ func (c *ManagedChannel) LoadBacklog() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	var newPinMessages []smallMessage
-	var quickPinLookup = make(map[string]struct{})
 	if pinsErr != nil {
-		newPinMessages = c.pinMessages
-		for _, v := range newPinMessages {
-			quickPinLookup[v.MessageID] = struct{}{}
-		}
+		// do not overwrite keepLookup
 	} else {
-		newPinMessages = make([]smallMessage, 0, len(pins))
+		c.keepLookup = make(map[string]bool)
 		for i := range pins {
-			ts, err := pins[i].Timestamp.Parse()
-			if err != nil {
-				panic("Timestamp format change")
-			}
-			if ts.IsZero() {
-				continue
-			}
-			newPinMessages = append(newPinMessages, smallMessage{
-				MessageID: pins[i].ID,
-				PostedAt:  ts,
-			})
-			quickPinLookup[pins[i].ID] = struct{}{}
+			c.keepLookup[pins[i].ID] = true
+		}
+		for _, v := range c.KeepMessages {
+			c.keepLookup[v] = true
 		}
 	}
 
@@ -126,14 +120,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 		v := msgs[i-1]
 
 		// Check for non-deletion
-		keep := false
-		if v.ID == c.ConfMessageID {
-			keep = true
-		}
-		if _, found := quickPinLookup[v.ID]; found {
-			keep = true
-		}
-		if keep {
+		if c.keepLookup[v.ID] {
 			continue
 		}
 
@@ -158,7 +145,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 		close(c.isStarted)
 		inited = "initialized"
 	}
-	fmt.Printf("[load] %s #%s %s, %d msgs %d pins\n", c.Channel.ID, c.Channel.Name, inited, len(c.liveMessages), len(c.pinMessages))
+	fmt.Printf("[load] %s #%s %s, %d msgs %d keeps\n", c.Channel.ID, c.Channel.Name, inited, len(c.liveMessages), len(c.keepLookup))
 	return nil
 }
 
@@ -182,12 +169,7 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 
 	c.mu.Lock()
 	// Check for nondeletion
-	// don't need a pin check here, it's a brand new message
-	keep := false
-	if m.ID == c.ConfMessageID {
-		keep = true
-	}
-	if keep {
+	if c.keepLookup[m.ID] {
 		c.mu.Unlock()
 		return
 	}
@@ -211,53 +193,46 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 
 // UpdatePins gets called in two situations - a pin was added, a pin was
 // removed, or more than one of those happened too fast for us to notice.
-func (c *ManagedChannel) UpdatePins(hasPins bool) {
-	c.mu.Lock()
-	oldHasPins := c.HasPins
-	c.HasPins = hasPins
-	c.mu.Unlock()
-
-	if oldHasPins != hasPins {
-		c.bot.saveChannelConfig(c.Export())
-	}
-
-	if hasPins {
-		c.LoadBacklog()
-	}
-
-	/*
-		pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
-		if err != nil {
-			fmt.Println("could not load pins for", c.Channel.ID, err)
-			return
-		}
-		newPins := make(map[string]struct{})
-		remPins := make(map[string]struct{})
-
-		for _, v := range pins {
-			newPins[v.ID] = struct{}{}
-		}
-		c.mu.Lock()
-		for _, v := range c.pinMessages {
-			_, matched := newPins[v.MessageID]
-			if matched {
-				delete(newPins, v.MessageID)
-			} else {
-				remPins[v.MessageID] = struct{}{}
+func (c *ManagedChannel) UpdatePins(newLpts string) {
+	var dropMsgs []string
+	defer func() {
+		// This is not the best, as the pins will be deleted
+		// non-chronologically, but it avoids chopping the backlog back to 100
+		// messages.
+		for _, v := range dropMsgs {
+			msg, err := c.bot.s.ChannelMessage(c.Channel.ID, v)
+			if err == nil {
+				c.AddMessage(msg)
 			}
 		}
-		c.mu.Unlock()
+	}()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-		fmt.Println("pins update for", c.Channel.ID, c.Channel.Name, "-", len(newPins), "added,", len(remPins), "removed")
-	*/
-	// if len(remPins) > 0 || len(newPins) > 0 {
-	// c.LoadBacklog()
-	// }
-	// Doesn't work -- AddMessage works chronologically
-	// for msgID := range remPins {
-	// 	msg := c.b.s.ChannelMessage(c.Channel.ID, msgID)
-	// 	c.AddMessage(msg)
-	// }
+	pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
+	if err != nil {
+		fmt.Println("[pins] could not load pins for", c.Channel.ID, err)
+		return
+	}
+
+	newKeep := make(map[string]bool)
+
+	for _, v := range pins {
+		newKeep[v.ID] = true
+	}
+	for _, v := range c.KeepMessages {
+		newKeep[v] = true
+	}
+
+	for id := range c.keepLookup {
+		if !newKeep[id] {
+			dropMsgs = append(dropMsgs, id)
+		}
+	}
+
+	fmt.Println("[pins] update for", c.Channel.ID, c.Channel.Name, "-", len(newKeep), "keep", len(dropMsgs), "drop")
+	c.keepLookup = newKeep
+	// deferred function calls AddMessage for each of dropMsgs
 }
 
 // DoNotDeleteMessage marks a message ID as not for deletion.
@@ -304,15 +279,21 @@ func (c *ManagedChannel) SetMaxMessages(max int) {
 func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	for len(c.liveMessages) > 0 {
+		// Recheck keepLookup
+		if c.keepLookup[c.liveMessages[0].MessageID] {
+			c.liveMessages = c.liveMessages[1:]
+			continue
+		}
+		break
+	}
 	if len(c.liveMessages) == 0 {
 		return time.Now().Add(240 * time.Hour)
 	}
 
-	if c.liveMessages[0].MessageID == c.ConfMessageID {
-		c.liveMessages = c.liveMessages[1:]
-	}
 	if c.MaxMessages > 0 && len(c.liveMessages) > c.MaxMessages {
-		return time.Now()
+		return c.liveMessages[c.MaxMessages-1].PostedAt
 	}
 	if c.MessageLiveTime != 0 {
 		return c.liveMessages[0].PostedAt.Add(c.MessageLiveTime)
@@ -380,7 +361,7 @@ func (c *ManagedChannel) collectMessagesToDelete() []string {
 
 	if c.MaxMessages > 0 {
 		for len(c.liveMessages) > c.MaxMessages {
-			if c.liveMessages[0].MessageID != c.ConfMessageID {
+			if !c.keepLookup[c.liveMessages[0].MessageID] {
 				toDelete = append(toDelete, c.liveMessages[0].MessageID)
 				if oldest == zero {
 					oldest = c.liveMessages[0].PostedAt
@@ -392,7 +373,7 @@ func (c *ManagedChannel) collectMessagesToDelete() []string {
 	if c.MessageLiveTime > 0 {
 		cutoff := time.Now().Add(-c.MessageLiveTime)
 		for len(c.liveMessages) > 0 && c.liveMessages[0].PostedAt.Before(cutoff) {
-			if c.liveMessages[0].MessageID != c.ConfMessageID {
+			if !c.keepLookup[c.liveMessages[0].MessageID] {
 				toDelete = append(toDelete, c.liveMessages[0].MessageID)
 				if oldest == zero {
 					oldest = c.liveMessages[0].PostedAt
@@ -404,7 +385,7 @@ func (c *ManagedChannel) collectMessagesToDelete() []string {
 		if oldest != zero {
 			cutoff = oldest.Add(1500 * time.Millisecond)
 			for len(c.liveMessages) > 0 && c.liveMessages[0].PostedAt.Before(cutoff) {
-				if c.liveMessages[0].MessageID != c.ConfMessageID {
+				if !c.keepLookup[c.liveMessages[0].MessageID] {
 					toDelete = append(toDelete, c.liveMessages[0].MessageID)
 				}
 				c.liveMessages = c.liveMessages[1:]

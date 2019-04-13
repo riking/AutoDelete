@@ -110,8 +110,19 @@ func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdat
 		return
 	}
 
+	disCh, err := s.Channel(ev.ChannelID)
+	if err != nil {
+		fmt.Println("[pins] error fetching channel:", err)
+		return
+	}
+	if ev.LastPinTimestamp == "" {
+		disCh.LastPinTimestamp = nil
+	} else {
+		var ts = discordgo.Timestamp(ev.LastPinTimestamp)
+		disCh.LastPinTimestamp = &ts
+	}
 	fmt.Println("[pins] got pins update for", mCh.Channel.ID, mCh.Channel.Name, "- new lpts", ev.LastPinTimestamp)
-	mCh.UpdatePins(ev.LastPinTimestamp != "")
+	mCh.UpdatePins(ev.LastPinTimestamp)
 }
 
 func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
