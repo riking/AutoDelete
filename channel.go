@@ -34,6 +34,7 @@ type ManagedChannel struct {
 	isStarted    chan struct{}
 	liveMessages []smallMessage
 	keepLookup   map[string]bool
+	loadFailures time.Duration
 }
 
 func (c *ManagedChannel) Export() ManagedChannelMarshal {
@@ -102,27 +103,23 @@ func (c *ManagedChannel) LoadBacklog() error {
 		fmt.Println("[ERR ] could not load pins for", c.Channel.ID, pinsErr)
 
 		// experiment with a notice
-		c.bot.s.ChannelMessageSend(c.Channel.ID,
-			":warning: Failed to load channel pins, may accidentally delete them",
-		)
-		// TODO(riking): reschedule the load
-		//return err
+		//c.bot.s.ChannelMessageSend(c.Channel.ID,
+		//	":warning: Failed to load channel pins, may accidentally delete them",
+		//)
+		return pinsErr
 	}
 
 	defer c.bot.QueueReap(c) // requires mutex unlocked
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if pinsErr != nil {
-		// do not overwrite keepLookup
-	} else {
-		c.keepLookup = make(map[string]bool)
-		for i := range pins {
-			c.keepLookup[pins[i].ID] = true
-		}
-		for _, v := range c.KeepMessages {
-			c.keepLookup[v] = true
-		}
+	c.loadFailures = 0
+	c.keepLookup = make(map[string]bool)
+	for i := range pins {
+		c.keepLookup[pins[i].ID] = true
+	}
+	for _, v := range c.KeepMessages {
+		c.keepLookup[v] = true
 	}
 
 	c.liveMessages = make([]smallMessage, 0, len(msgs))
@@ -164,7 +161,7 @@ func (b *Bot) LoadAllBacklogs() {
 	b.mu.RLock()
 	for _, v := range b.channels {
 		if v != nil {
-			go v.LoadBacklog()
+			b.QueueLoadBacklog(v, false)
 		}
 	}
 	b.mu.RUnlock()
@@ -357,7 +354,7 @@ nobulk:
 			}
 		}
 		// re-load the backlog in case this surfaced more things to delete
-		c.LoadBacklog()
+		c.bot.QueueLoadBacklog(c, false)
 	}()
 	return -1, nil
 }

@@ -3,6 +3,7 @@ package autodelete
 import (
 	"container/heap"
 	"fmt"
+	mrand "math/rand"
 	"sync"
 	"time"
 )
@@ -137,41 +138,68 @@ start:
 }
 
 func (b *Bot) QueueReap(c *ManagedChannel) {
-	var reapTime time.Time
-
-	reapTime = c.GetNextDeletionTime()
-	//fmt.Println("got reap queue for", c.Channel.ID, c.Channel.Name, reapTime)
+	reapTime := c.GetNextDeletionTime()
 	b.reaper.Update(c, reapTime)
 }
 
-func (b *Bot) reapScheduler() {
-	for i := 0; i < 4; i++ {
-		go b.reapWorker()
+func (b *Bot) QueueLoadBacklog(c *ManagedChannel, didFail bool) {
+	c.mu.Lock()
+	loadDelay := c.loadFailures
+	if didFail {
+		c.loadFailures = time.Duration(int64(loadDelay)*2 + int64(mrand.Intn(int(5*time.Second))))
+		loadDelay = c.loadFailures
+	}
+	c.mu.Unlock()
+
+	b.loadRetries.Update(c, time.Now().Add(loadDelay))
+}
+
+func reapScheduler(q *reapQueue, numWorkers int, workerFunc func(*reapQueue)) {
+	for i := 0; i < numWorkers; i++ {
+		go workerFunc(q)
 	}
 
 	for {
-		ch := b.reaper.WaitForNext()
+		ch := q.WaitForNext()
 
-		b.reaper.curMu.Lock()
-		_, channelAlreadyBeingDeleted := b.reaper.curWork[ch]
-		if !channelAlreadyBeingDeleted {
-			b.reaper.curWork[ch] = struct{}{}
+		q.curMu.Lock()
+		_, channelAlreadyBeingProcessed := q.curWork[ch]
+		if !channelAlreadyBeingProcessed {
+			q.curWork[ch] = struct{}{}
 		}
-		b.reaper.curMu.Unlock()
+		q.curMu.Unlock()
 
-		if channelAlreadyBeingDeleted {
+		if channelAlreadyBeingProcessed {
 			continue
 		}
 
-		msgs := ch.collectMessagesToDelete()
-		b.reaper.workCh <- reapWorkItem{ch: ch, msgs: msgs}
+		q.workCh <- reapWorkItem{ch: ch}
 	}
 }
 
-func (b *Bot) reapWorker() {
-	for work := range b.reaper.workCh {
+func (b *Bot) loadWorker(q *reapQueue) {
+	for work := range q.workCh {
 		ch := work.ch
-		msgs := work.msgs
+
+		err := ch.LoadBacklog()
+
+		q.curMu.Lock()
+		delete(q.curWork, ch)
+		q.curMu.Unlock()
+
+		if err != nil {
+			// Only error to retry is a CloudFlare HTML 429
+			if strings.Contains(err.Error(), "rate limit unmarshal error") {
+				b.QueueLoadBacklog(ch, true)
+			}
+		}
+	}
+}
+
+func (b *Bot) reapWorker(q *reapQueue) {
+	for work := range q.workCh {
+		ch := work.ch
+		msgs := ch.collectMessagesToDelete()
 
 		fmt.Printf("[reap] %s #%s: deleting %d messages\n", ch.Channel.ID, ch.Channel.Name, len(msgs))
 		count, err := ch.Reap(msgs)
@@ -180,14 +208,14 @@ func (b *Bot) reapWorker() {
 		}
 		if err != nil {
 			fmt.Printf("[reap] %s #%s: deleted %d, got error: %v\n", ch.Channel.ID, ch.Channel.Name, count, err)
-			ch.LoadBacklog()
+			b.QueueLoadBacklog(ch, false)
 		} else if count == -1 {
 			fmt.Printf("[reap] %s #%s: doing single-message delete\n", ch.Channel.ID, ch.Channel.Name)
 		}
 
-		b.reaper.curMu.Lock()
-		delete(b.reaper.curWork, ch)
-		b.reaper.curMu.Unlock()
+		q.curMu.Lock()
+		delete(q.curWork, ch)
+		q.curMu.Unlock()
 		b.QueueReap(ch)
 	}
 }
