@@ -17,7 +17,7 @@ type smallMessage struct {
 	//ChannelID string
 }
 
-const minTimeBetweenDeletion = time.Seconds(5)
+const minTimeBetweenDeletion = time.Second * 5
 
 type ManagedChannel struct {
 	bot     *Bot
@@ -61,18 +61,18 @@ func InitChannel(b *Bot, chConf ManagedChannelMarshal) (*ManagedChannel, error) 
 		return nil, err
 	}
 	return &ManagedChannel{
-		bot:               b,
-		Channel:           disCh,
-		GuildID:           disCh.GuildID,
-		minNextDeleteTime: time.Now(),
-		MessageLiveTime:   chConf.LiveTime,
-		MaxMessages:       chConf.MaxMessages,
-		LastSentUpdate:    chConf.LastSentUpdate,
-		KeepMessages:      chConf.KeepMessages,
-		IsDonor:           chConf.IsDonor,
-		isStarted:         make(chan struct{}),
-		liveMessages:      nil,
-		keepLookup:        make(map[string]bool),
+		bot:             b,
+		Channel:         disCh,
+		GuildID:         disCh.GuildID,
+		minNextDelete:   time.Now(),
+		MessageLiveTime: chConf.LiveTime,
+		MaxMessages:     chConf.MaxMessages,
+		LastSentUpdate:  chConf.LastSentUpdate,
+		KeepMessages:    chConf.KeepMessages,
+		IsDonor:         chConf.IsDonor,
+		isStarted:       make(chan struct{}),
+		liveMessages:    nil,
+		keepLookup:      make(map[string]bool),
 	}, nil
 }
 
@@ -312,12 +312,12 @@ func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	}
 
 	if c.MaxMessages > 0 && len(c.liveMessages) > c.MaxMessages {
-		return c.minNextDeleteTime
+		return c.minNextDelete
 	}
 	if c.MessageLiveTime != 0 {
 		ts := c.liveMessages[0].PostedAt.Add(c.MessageLiveTime)
-		if ts.Before(c.minNextDeleteTime) {
-			return c.minNextDeleteTime
+		if ts.Before(c.minNextDelete) {
+			return c.minNextDelete
 		}
 		return ts
 	}
@@ -375,11 +375,11 @@ nobulk:
 }
 
 // returns and removes the messages that need to be deleted right now.
-// also sets the minNextDeleteTime
+// also sets the minNextDelete
 func (c *ManagedChannel) collectMessagesToDelete() []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.minNextDeleteTime = time.Now().Add(minTimeBetweenDeletion)
+	c.minNextDelete = time.Now().Add(minTimeBetweenDeletion)
 
 	var toDelete []string
 	var oldest time.Time
