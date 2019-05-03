@@ -17,12 +17,15 @@ type smallMessage struct {
 	//ChannelID string
 }
 
+const minTimeBetweenDeletion = time.Seconds(5)
+
 type ManagedChannel struct {
 	bot     *Bot
 	Channel *discordgo.Channel
 	GuildID string
 
-	mu sync.Mutex
+	mu            sync.Mutex
+	minNextDelete time.Time // channel cannot get sent to deletion before this time
 	// Messages posted to the channel get deleted after
 	MessageLiveTime time.Duration
 	MaxMessages     int
@@ -58,17 +61,18 @@ func InitChannel(b *Bot, chConf ManagedChannelMarshal) (*ManagedChannel, error) 
 		return nil, err
 	}
 	return &ManagedChannel{
-		bot:             b,
-		Channel:         disCh,
-		GuildID:         disCh.GuildID,
-		MessageLiveTime: chConf.LiveTime,
-		MaxMessages:     chConf.MaxMessages,
-		LastSentUpdate:  chConf.LastSentUpdate,
-		KeepMessages:    chConf.KeepMessages,
-		IsDonor:         chConf.IsDonor,
-		isStarted:       make(chan struct{}),
-		liveMessages:    nil,
-		keepLookup:      make(map[string]bool),
+		bot:               b,
+		Channel:           disCh,
+		GuildID:           disCh.GuildID,
+		minNextDeleteTime: time.Now(),
+		MessageLiveTime:   chConf.LiveTime,
+		MaxMessages:       chConf.MaxMessages,
+		LastSentUpdate:    chConf.LastSentUpdate,
+		KeepMessages:      chConf.KeepMessages,
+		IsDonor:           chConf.IsDonor,
+		isStarted:         make(chan struct{}),
+		liveMessages:      nil,
+		keepLookup:        make(map[string]bool),
 	}, nil
 }
 
@@ -308,10 +312,14 @@ func (c *ManagedChannel) GetNextDeletionTime() time.Time {
 	}
 
 	if c.MaxMessages > 0 && len(c.liveMessages) > c.MaxMessages {
-		return c.liveMessages[c.MaxMessages-1].PostedAt
+		return c.minNextDeleteTime
 	}
 	if c.MessageLiveTime != 0 {
-		return c.liveMessages[0].PostedAt.Add(c.MessageLiveTime)
+		ts := c.liveMessages[0].PostedAt.Add(c.MessageLiveTime)
+		if ts.Before(c.minNextDeleteTime) {
+			return c.minNextDeleteTime
+		}
+		return ts
 	}
 	return time.Now().Add(240 * time.Hour)
 }
@@ -366,9 +374,12 @@ nobulk:
 	return -1, nil
 }
 
+// returns and removes the messages that need to be deleted right now.
+// also sets the minNextDeleteTime
 func (c *ManagedChannel) collectMessagesToDelete() []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.minNextDeleteTime = time.Now().Add(minTimeBetweenDeletion)
 
 	var toDelete []string
 	var oldest time.Time
