@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"os"
 )
 
 // All error constants
@@ -147,6 +148,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		err = json.Unmarshal(response, &rl)
 		if err != nil {
 			s.log(LogError, "rate limit unmarshal error, %s", err)
+			fmt.Fprintln(os.Stderr, string(response))
 			rl.RetryAfter = 2500
 		}
 		s.log(LogInformational, "Rate Limiting %s, retry in %d", urlStr, rl.RetryAfter)
