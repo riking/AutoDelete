@@ -13,8 +13,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -69,7 +69,7 @@ type VoiceConnection struct {
 	voiceSpeakingUpdateHandlers []VoiceSpeakingUpdateHandler
 }
 
-// VoiceSpeakingUpdateHandler type provides a function defination for the
+// VoiceSpeakingUpdateHandler type provides a function definition for the
 // VoiceSpeakingUpdate event
 type VoiceSpeakingUpdateHandler func(vc *VoiceConnection, vs *VoiceSpeakingUpdate)
 
@@ -104,7 +104,7 @@ func (v *VoiceConnection) Speaking(b bool) (err error) {
 	defer v.Unlock()
 	if err != nil {
 		v.speaking = false
-		log.Println("Speaking() write json error:", err)
+		v.log(LogError, "Speaking() write json error, %s", err)
 		return
 	}
 
@@ -136,7 +136,6 @@ func (v *VoiceConnection) ChangeChannel(channelID string, mute, deaf bool) (err 
 
 // Disconnect disconnects from this voice channel and closes the websocket
 // and udp connections to Discord.
-// !!! NOTE !!! this function may be removed in favour of ChannelVoiceLeave
 func (v *VoiceConnection) Disconnect() (err error) {
 
 	// Send a OP4 with a nil channel to disconnect
@@ -181,7 +180,7 @@ func (v *VoiceConnection) Close() {
 		v.log(LogInformational, "closing udp")
 		err := v.udpConn.Close()
 		if err != nil {
-			log.Println("error closing udp connection: ", err)
+			v.log(LogError, "error closing udp connection, %s", err)
 		}
 		v.udpConn = nil
 	}
@@ -247,7 +246,7 @@ type voiceOP2 struct {
 }
 
 // WaitUntilConnected waits for the Voice Connection to
-// become ready, if it does not become ready it retuns an err
+// become ready, if it does not become ready it returns an err
 func (v *VoiceConnection) waitUntilConnected() error {
 
 	v.log(LogInformational, "called")
@@ -300,7 +299,7 @@ func (v *VoiceConnection) open() (err error) {
 	}
 
 	// Connect to VoiceConnection Websocket
-	vg := fmt.Sprintf("wss://%s", strings.TrimSuffix(v.endpoint, ":80"))
+	vg := "wss://" + strings.TrimSuffix(v.endpoint, ":80")
 	v.log(LogInformational, "connecting to voice endpoint %s", vg)
 	v.wsConn, _, err = websocket.DefaultDialer.Dial(vg, nil)
 	if err != nil {
@@ -543,7 +542,7 @@ func (v *VoiceConnection) udpOpen() (err error) {
 		return fmt.Errorf("empty endpoint")
 	}
 
-	host := fmt.Sprintf("%s:%d", strings.TrimSuffix(v.endpoint, ":80"), v.op2.Port)
+	host := strings.TrimSuffix(v.endpoint, ":80") + ":" + strconv.Itoa(v.op2.Port)
 	addr, err := net.ResolveUDPAddr("udp", host)
 	if err != nil {
 		v.log(LogWarning, "error resolving udp host %s, %s", host, err)
@@ -858,7 +857,7 @@ func (v *VoiceConnection) reconnect() {
 		}
 
 		if v.session.DataReady == false || v.session.wsConn == nil {
-			v.log(LogInformational, "cannot reconenct to channel %s with unready session", v.ChannelID)
+			v.log(LogInformational, "cannot reconnect to channel %s with unready session", v.ChannelID)
 			continue
 		}
 

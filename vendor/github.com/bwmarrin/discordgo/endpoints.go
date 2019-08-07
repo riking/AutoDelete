@@ -11,6 +11,8 @@
 
 package discordgo
 
+import "strconv"
+
 // APIVersion is the Discord API version used for the REST and Websocket API.
 var APIVersion = "6"
 
@@ -61,17 +63,20 @@ var (
 	EndpointUser               = func(uID string) string { return EndpointUsers + uID }
 	EndpointUserAvatar         = func(uID, aID string) string { return EndpointCDNAvatars + uID + "/" + aID + ".png" }
 	EndpointUserAvatarAnimated = func(uID, aID string) string { return EndpointCDNAvatars + uID + "/" + aID + ".gif" }
-	EndpointUserSettings       = func(uID string) string { return EndpointUsers + uID + "/settings" }
-	EndpointUserGuilds         = func(uID string) string { return EndpointUsers + uID + "/guilds" }
-	EndpointUserGuild          = func(uID, gID string) string { return EndpointUsers + uID + "/guilds/" + gID }
-	EndpointUserGuildSettings  = func(uID, gID string) string { return EndpointUsers + uID + "/guilds/" + gID + "/settings" }
-	EndpointUserChannels       = func(uID string) string { return EndpointUsers + uID + "/channels" }
-	EndpointUserDevices        = func(uID string) string { return EndpointUsers + uID + "/devices" }
-	EndpointUserConnections    = func(uID string) string { return EndpointUsers + uID + "/connections" }
-	EndpointUserNotes          = func(uID string) string { return EndpointUsers + "@me/notes/" + uID }
+	EndpointDefaultUserAvatar  = func(uDiscriminator string) string {
+		uDiscriminatorInt, _ := strconv.Atoi(uDiscriminator)
+		return EndpointCDN + "embed/avatars/" + strconv.Itoa(uDiscriminatorInt%5) + ".png"
+	}
+	EndpointUserSettings      = func(uID string) string { return EndpointUsers + uID + "/settings" }
+	EndpointUserGuilds        = func(uID string) string { return EndpointUsers + uID + "/guilds" }
+	EndpointUserGuild         = func(uID, gID string) string { return EndpointUsers + uID + "/guilds/" + gID }
+	EndpointUserGuildSettings = func(uID, gID string) string { return EndpointUsers + uID + "/guilds/" + gID + "/settings" }
+	EndpointUserChannels      = func(uID string) string { return EndpointUsers + uID + "/channels" }
+	EndpointUserDevices       = func(uID string) string { return EndpointUsers + uID + "/devices" }
+	EndpointUserConnections   = func(uID string) string { return EndpointUsers + uID + "/connections" }
+	EndpointUserNotes         = func(uID string) string { return EndpointUsers + "@me/notes/" + uID }
 
 	EndpointGuild                = func(gID string) string { return EndpointGuilds + gID }
-	EndpointGuildInivtes         = func(gID string) string { return EndpointGuilds + gID + "/invites" }
 	EndpointGuildChannels        = func(gID string) string { return EndpointGuilds + gID + "/channels" }
 	EndpointGuildMembers         = func(gID string) string { return EndpointGuilds + gID + "/members" }
 	EndpointGuildMember          = func(gID, uID string) string { return EndpointGuilds + gID + "/members/" + uID }
@@ -89,6 +94,9 @@ var (
 	EndpointGuildIcon            = func(gID, hash string) string { return EndpointCDNIcons + gID + "/" + hash + ".png" }
 	EndpointGuildSplash          = func(gID, hash string) string { return EndpointCDNSplashes + gID + "/" + hash + ".png" }
 	EndpointGuildWebhooks        = func(gID string) string { return EndpointGuilds + gID + "/webhooks" }
+	EndpointGuildAuditLogs       = func(gID string) string { return EndpointGuilds + gID + "/audit-logs" }
+	EndpointGuildEmojis          = func(gID string) string { return EndpointGuilds + gID + "/emojis" }
+	EndpointGuildEmoji           = func(gID, eID string) string { return EndpointGuilds + gID + "/emojis/" + eID }
 
 	EndpointChannel                   = func(cID string) string { return EndpointChannels + cID }
 	EndpointChannelPermissions        = func(cID string) string { return EndpointChannels + cID + "/permissions" }
@@ -98,7 +106,7 @@ var (
 	EndpointChannelMessages           = func(cID string) string { return EndpointChannels + cID + "/messages" }
 	EndpointChannelMessage            = func(cID, mID string) string { return EndpointChannels + cID + "/messages/" + mID }
 	EndpointChannelMessageAck         = func(cID, mID string) string { return EndpointChannels + cID + "/messages/" + mID + "/ack" }
-	EndpointChannelMessagesBulkDelete = func(cID string) string { return EndpointChannel(cID) + "/messages/bulk_delete" }
+	EndpointChannelMessagesBulkDelete = func(cID string) string { return EndpointChannel(cID) + "/messages/bulk-delete" }
 	EndpointChannelMessagesPins       = func(cID string) string { return EndpointChannel(cID) + "/pins" }
 	EndpointChannelMessagePin         = func(cID, mID string) string { return EndpointChannel(cID) + "/pins/" + mID }
 
@@ -122,11 +130,14 @@ var (
 	EndpointRelationship        = func(uID string) string { return EndpointRelationships() + "/" + uID }
 	EndpointRelationshipsMutual = func(uID string) string { return EndpointUsers + uID + "/relationships" }
 
+	EndpointGuildCreate = EndpointAPI + "guilds"
+
 	EndpointInvite = func(iID string) string { return EndpointAPI + "invite/" + iID }
 
 	EndpointIntegrationsJoin = func(iID string) string { return EndpointAPI + "integrations/" + iID + "/join" }
 
-	EndpointEmoji = func(eID string) string { return EndpointAPI + "emojis/" + eID + ".png" }
+	EndpointEmoji         = func(eID string) string { return EndpointAPI + "emojis/" + eID + ".png" }
+	EndpointEmojiAnimated = func(eID string) string { return EndpointAPI + "emojis/" + eID + ".gif" }
 
 	EndpointOauth2          = EndpointAPI + "oauth2/"
 	EndpointApplications    = EndpointOauth2 + "applications"

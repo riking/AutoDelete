@@ -9,8 +9,8 @@ import (
 
 func ExampleApplication() {
 
-	// Authentication Token pulled from environment variable DG_TOKEN
-	Token := os.Getenv("DG_TOKEN")
+	// Authentication Token pulled from environment variable DGU_TOKEN
+	Token := os.Getenv("DGU_TOKEN")
 	if Token == "" {
 		return
 	}
