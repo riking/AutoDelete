@@ -2,6 +2,8 @@ package autodelete
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/cookiejar"
 	"strings"
 	"time"
 
@@ -9,12 +11,35 @@ import (
 	"github.com/pkg/errors"
 )
 
+type userAgentSetter struct {
+	t http.RoundTripper
+}
+
+func (u *userAgentSetter) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.Header.Set("User-Agent", "AutoDelete (https://github.com/riking/AutoDelete, v1.4)")
+	return u.t.RoundTrip(req)
+}
+
 func (b *Bot) ConnectDiscord() error {
 	s, err := discordgo.New("Bot " + b.BotToken)
 	if err != nil {
 		return err
 	}
 	b.s = s
+
+	// Configure the HTTP client
+	runtimeCookieJar, err := cookiejar.New(nil)
+	if err != nil {
+		return err
+	}
+	transport := &userAgentSetter{t: http.DefaultTransport}
+	s.Client = &http.Client{
+		Timeout:   20 * time.Second,
+		Jar:       runtimeCookieJar,
+		Transport: transport,
+	}
+
+	// Add event handlers
 	s.AddHandler(b.OnReady)
 	s.AddHandler(b.OnResume)
 	s.AddHandler(b.OnChannelCreate)
