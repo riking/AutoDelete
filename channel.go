@@ -110,7 +110,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 	// Early exit if we got multiple calls
 	earlyExit := false
 	c.mu.Lock()
-	if c.loadBacklogInProgress || c.lastLoadBacklog.Add(minTimeBetweenLoadBacklog).Before(time.Now()) {
+	if c.loadBacklogInProgress || c.lastLoadBacklog.Add(minTimeBetweenLoadBacklog).After(time.Now()) {
 		earlyExit = true
 	} else {
 		c.loadBacklogInProgress = true
