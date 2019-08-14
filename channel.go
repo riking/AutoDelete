@@ -18,6 +18,7 @@ type smallMessage struct {
 }
 
 const minTimeBetweenDeletion = time.Second * 5
+const minTimeBetweenLoadBacklog = time.Second * 30
 
 type ManagedChannel struct {
 	bot     *Bot
@@ -26,6 +27,8 @@ type ManagedChannel struct {
 
 	mu            sync.Mutex
 	minNextDelete time.Time // channel cannot get sent to deletion before this time
+	lastLoadBacklog time.Time // last LoadBacklog call
+	loadBacklogInProgress bool
 	// Messages posted to the channel get deleted after
 	MessageLiveTime time.Duration
 	MaxMessages     int
@@ -104,6 +107,29 @@ func (c *ManagedChannel) LoadBacklogNow() {
 }
 
 func (c *ManagedChannel) LoadBacklog() error {
+	// Early exit if we got multiple calls
+	earlyExit := false
+	c.mu.Lock()
+	if c.loadBacklogInProgress || c.lastLoadBacklog.Add(minTimeBetweenLoadBacklog).Before(time.Now()) {
+		earlyExit = true
+	} else {
+		c.loadBacklogInProgress = true
+	}
+	c.mu.Unlock()
+	if earlyExit {
+		fmt.Println("[WARN] Cancelling LoadBacklog for", c.Channel.ID, "due to <30s elapsed")
+		return nil
+	}
+	// Clear the progress flag if we set it
+	// Set time even on errors
+	defer func() {
+		c.mu.Lock()
+		c.loadBacklogInProgress = false
+		c.lastLoadBacklog = time.Now()
+		c.mu.Unlock()
+	}()
+
+	// Load messages & pins
 	msgs, err := c.bot.s.ChannelMessages(c.Channel.ID, 100, "", "", "")
 	if err != nil {
 		fmt.Println("[ERR ] could not load backlog for", c.Channel.ID, err)
