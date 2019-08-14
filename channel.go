@@ -26,6 +26,7 @@ type ManagedChannel struct {
 	GuildID string
 
 	mu            sync.Mutex
+	backlogMu     sync.Mutex // only for LoadBacklog()
 	minNextDelete time.Time // channel cannot get sent to deletion before this time
 	lastLoadBacklog time.Time // last LoadBacklog call
 	loadBacklogInProgress bool
@@ -107,6 +108,10 @@ func (c *ManagedChannel) LoadBacklogNow() {
 }
 
 func (c *ManagedChannel) LoadBacklog() error {
+	// prevent reentrancy, even during web requests
+	c.backlogMu.Lock()
+	defer c.backlogMu.Unlock()
+
 	// Early exit if we got multiple calls
 	earlyExit := false
 	c.mu.Lock()
@@ -114,6 +119,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 		earlyExit = true
 	} else {
 		c.loadBacklogInProgress = true
+		c.lastLoadBacklog = time.Now()
 	}
 	c.mu.Unlock()
 	if earlyExit {
