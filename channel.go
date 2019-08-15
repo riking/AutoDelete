@@ -19,17 +19,19 @@ type smallMessage struct {
 
 const minTimeBetweenDeletion = time.Second * 5
 const minTimeBetweenLoadBacklog = time.Second * 30
+const backlogReloadLimit = 100
+const backlogAutoReloadPreFraction = 0.8
+const backlogAutoReloadDeleteFraction = 0.25
 
 type ManagedChannel struct {
 	bot     *Bot
 	Channel *discordgo.Channel
 	GuildID string
 
-	mu            sync.Mutex
-	backlogMu     sync.Mutex // only for LoadBacklog()
-	minNextDelete time.Time // channel cannot get sent to deletion before this time
-	lastLoadBacklog time.Time // last LoadBacklog call
-	loadBacklogInProgress bool
+	mu                    sync.Mutex
+	backlogMu             sync.Mutex // only for LoadBacklog()
+	minNextDelete         time.Time  // channel cannot get sent to deletion before this time
+	lastLoadBacklog       time.Time  // last LoadBacklog call
 	// Messages posted to the channel get deleted after
 	MessageLiveTime time.Duration
 	MaxMessages     int
@@ -115,10 +117,9 @@ func (c *ManagedChannel) LoadBacklog() error {
 	// Early exit if we got multiple calls
 	earlyExit := false
 	c.mu.Lock()
-	if c.loadBacklogInProgress || c.lastLoadBacklog.Add(minTimeBetweenLoadBacklog).After(time.Now()) {
+	if c.lastLoadBacklog.Add(minTimeBetweenLoadBacklog).After(time.Now()) {
 		earlyExit = true
 	} else {
-		c.loadBacklogInProgress = true
 		c.lastLoadBacklog = time.Now()
 	}
 	c.mu.Unlock()
@@ -130,7 +131,6 @@ func (c *ManagedChannel) LoadBacklog() error {
 	// Set time even on errors
 	defer func() {
 		c.mu.Lock()
-		c.loadBacklogInProgress = false
 		c.lastLoadBacklog = time.Now()
 		c.mu.Unlock()
 	}()
@@ -407,8 +407,10 @@ nobulk:
 }
 
 // returns and removes the messages that need to be deleted right now.
-// also sets the minNextDelete
-func (c *ManagedChannel) collectMessagesToDelete() []string {
+//
+// also sets the minNextDelete and returns whether we think there could be more
+// messages past the backlog horizon
+func (c *ManagedChannel) collectMessagesToDelete() ([]string, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.minNextDelete = time.Now().Add(minTimeBetweenDeletion)
@@ -416,6 +418,8 @@ func (c *ManagedChannel) collectMessagesToDelete() []string {
 	var toDelete []string
 	var oldest time.Time
 	var zero time.Time
+
+	nLiveMessages := len(c.liveMessages)
 
 	if c.MaxMessages > 0 {
 		for len(c.liveMessages) > c.MaxMessages {
@@ -451,5 +455,6 @@ func (c *ManagedChannel) collectMessagesToDelete() []string {
 		}
 	}
 
-	return toDelete
+	return toDelete, ((nLiveMessages >= backlogReloadLimit*backlogAutoReloadPreFraction) &&
+		(len(toDelete) > backlogReloadLimit*backlogAutoReloadDeleteFraction))
 }

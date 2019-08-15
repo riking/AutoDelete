@@ -197,7 +197,7 @@ func (b *Bot) loadWorker(q *reapQueue) {
 func (b *Bot) reapWorker(q *reapQueue) {
 	for work := range q.workCh {
 		ch := work.ch
-		msgs := ch.collectMessagesToDelete()
+		msgs, shouldQueueBacklog := ch.collectMessagesToDelete()
 
 		fmt.Printf("[reap] %s #%s: deleting %d messages\n", ch.Channel.ID, ch.Channel.Name, len(msgs))
 		count, err := ch.Reap(msgs)
@@ -206,7 +206,7 @@ func (b *Bot) reapWorker(q *reapQueue) {
 		}
 		if err != nil {
 			fmt.Printf("[reap] %s #%s: deleted %d, got error: %v\n", ch.Channel.ID, ch.Channel.Name, count, err)
-			b.QueueLoadBacklog(ch, false)
+			shouldQueueBacklog = true
 		} else if count == -1 {
 			fmt.Printf("[reap] %s #%s: doing single-message delete\n", ch.Channel.ID, ch.Channel.Name)
 		}
@@ -215,6 +215,9 @@ func (b *Bot) reapWorker(q *reapQueue) {
 		delete(q.curWork, ch)
 		q.curMu.Unlock()
 		b.QueueReap(ch)
+		if shouldQueueBacklog {
+			b.QueueLoadBacklog(ch, false)
+		}
 	}
 }
 
