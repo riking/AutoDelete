@@ -28,10 +28,10 @@ type ManagedChannel struct {
 	Channel *discordgo.Channel
 	GuildID string
 
-	mu                    sync.Mutex
-	backlogMu             sync.Mutex // only for LoadBacklog()
-	minNextDelete         time.Time  // channel cannot get sent to deletion before this time
-	lastLoadBacklog       time.Time  // last LoadBacklog call
+	mu              sync.Mutex
+	backlogMu       sync.Mutex // only for LoadBacklog()
+	minNextDelete   time.Time  // channel cannot get sent to deletion before this time
+	lastLoadBacklog time.Time  // last LoadBacklog call
 	// Messages posted to the channel get deleted after
 	MessageLiveTime time.Duration
 	MaxMessages     int
@@ -39,6 +39,7 @@ type ManagedChannel struct {
 	// if lower than CriticalMsgSequence, need to send one
 	LastSentUpdate int
 	IsDonor        bool
+	needsExport    bool
 	// if false, need to check channel history for messages
 	isStarted    chan struct{}
 	liveMessages []smallMessage
@@ -66,6 +67,10 @@ func InitChannel(b *Bot, chConf ManagedChannelMarshal) (*ManagedChannel, error) 
 	if err != nil {
 		return nil, err
 	}
+	needsExport := false
+	if disCh.GuildID != chConf.GuildID {
+		needsExport = true
+	}
 	return &ManagedChannel{
 		bot:             b,
 		Channel:         disCh,
@@ -76,6 +81,7 @@ func InitChannel(b *Bot, chConf ManagedChannelMarshal) (*ManagedChannel, error) 
 		LastSentUpdate:  chConf.LastSentUpdate,
 		KeepMessages:    chConf.KeepMessages,
 		IsDonor:         chConf.IsDonor,
+		needsExport:     needsExport,
 		isStarted:       make(chan struct{}),
 		liveMessages:    nil,
 		keepLookup:      make(map[string]bool),

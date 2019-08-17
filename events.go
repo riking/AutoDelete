@@ -44,7 +44,7 @@ func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 		return err
 	}
 	fmt.Println("shard count recommendation: ", gb.Shards)
-	if shardCount * 2 < gb.Shards {
+	if shardCount*2 < gb.Shards {
 		return errors.Errorf("need to increase shard count: have %d, want %d", shardCount, gb.Shards)
 	}
 

@@ -3,9 +3,9 @@ package autodelete
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
-	"strconv"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -199,7 +199,7 @@ func (b *Bot) handleCriticalPermissionsErrors(channelID string, srcErr error) bo
 func (b *Bot) IsInShard(guildID string) bool {
 	n, err := strconv.ParseInt(guildID, 10, 64)
 	if err != nil {
-		return true  // fail safe
+		return true // fail safe
 	}
 	return b.isInShardNumeric(n)
 }
@@ -280,11 +280,18 @@ func (b *Bot) loadChannel(channelID string) error {
 	if err != nil {
 		return err
 	}
+	if mCh.needsExport {
+		fmt.Printf("[migr] Resaving channel %s\n", channelID)
+		b.saveChannelConfig(mCh.Export())
+		mCh.mu.Lock()
+		mCh.needsExport = false
+		mCh.mu.Unlock()
+	}
 	b.mu.Lock()
 	// TODO - multiple loadChannels() can happen at the same time (due to incoming messages)
 	b.channels[channelID] = mCh
 	b.mu.Unlock()
 
-	mCh.LoadBacklogNow()
+	b.QueueLoadBacklog(mCh, true)
 	return nil
 }
