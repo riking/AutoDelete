@@ -20,7 +20,7 @@ func (u *userAgentSetter) RoundTrip(req *http.Request) (*http.Response, error) {
 	return u.t.RoundTrip(req)
 }
 
-func (b *Bot) ConnectDiscord() error {
+func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 	s, err := discordgo.New("Bot " + b.BotToken)
 	if err != nil {
 		return err
@@ -38,6 +38,18 @@ func (b *Bot) ConnectDiscord() error {
 		Jar:       runtimeCookieJar,
 		Transport: transport,
 	}
+
+	gb, err := s.GatewayBot()
+	if err != nil {
+		return err
+	}
+	fmt.Println("shard count recommendation: ", gb.Shards)
+	if shardCount * 2 < gb.Shards {
+		return errors.Errorf("need to increase shard count: have %d, want %d", shardCount, gb.Shards)
+	}
+
+	s.ShardID = shardID
+	s.ShardCount = shardCount
 
 	// Add event handlers
 	s.AddHandler(b.OnReady)
