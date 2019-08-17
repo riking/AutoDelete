@@ -11,6 +11,7 @@ import (
 )
 
 var flagShardCount = flag.Int("shard", -1, "shard ID of this bot")
+var flagNoHttp = flag.Bool("nohttp", false, "skip http handler")
 
 func main() {
 	var conf autodelete.Config
@@ -47,9 +48,13 @@ func main() {
 		return
 	}
 
-	fmt.Printf("url: %s%s\n", conf.HTTP.Public, "/discord_auto_delete/oauth/start")
-	http.HandleFunc("/discord_auto_delete/oauth/start", b.HTTPOAuthStart)
-	http.HandleFunc("/discord_auto_delete/oauth/callback", b.HTTPOAuthCallback)
-	err = http.ListenAndServe(conf.HTTP.Listen, nil)
-	fmt.Println("exiting main()", err)
+	if !*flagNoHttp {
+		fmt.Printf("url: %s%s\n", conf.HTTP.Public, "/discord_auto_delete/oauth/start")
+		http.HandleFunc("/discord_auto_delete/oauth/start", b.HTTPOAuthStart)
+		http.HandleFunc("/discord_auto_delete/oauth/callback", b.HTTPOAuthCallback)
+		err = http.ListenAndServe(conf.HTTP.Listen, nil)
+		fmt.Println("exiting main()", err)
+	} else {
+		select{}
+	}
 }
