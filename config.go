@@ -43,7 +43,7 @@ type Config struct {
 	ClientID     string `yaml:"clientid"`
 	ClientSecret string `yaml:"clientsecret"`
 	BotToken     string `yaml:"bottoken"`
-	ShardCount   int    `yaml:"shards"`
+	Shards       int    `yaml:"shards"`
 	ErrorLogCh   string `yaml:"errorlog"`
 	HTTP         struct {
 		Listen string `yaml:"listen"`
