@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"strconv"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -195,12 +196,45 @@ func (b *Bot) handleCriticalPermissionsErrors(channelID string, srcErr error) bo
 	return false
 }
 
+func (b *Bot) IsInShard(guildID string) bool {
+	n, err := strconv.ParseInt(guildID, 10, 64)
+	if err != nil {
+		return true  // fail safe
+	}
+	return b.isInShardNumeric(n)
+}
+
+func (b *Bot) isInShardNumeric(guildID int64) bool {
+	if b.s.ShardCount <= 1 {
+		return true
+	}
+	shardSpecifier := (guildID >> 22)
+	return (shardSpecifier % int64(b.s.ShardCount)) == int64(b.s.ShardID)
+}
+
 func (b *Bot) LoadChannelConfigs() error {
 	channels, err := b.storage.ListChannels()
+	if err != nil {
+		return err
+	}
 	for _, chID := range channels {
+		var errHandled = false
+
+		ch, err := b.s.Channel(chID)
+		if err != nil {
+			errHandled = b.handleCriticalPermissionsErrors(chID, err)
+			if errHandled {
+				continue
+			}
+			fmt.Printf("Error loading configuration for channel %s: could not check guild ID: %v\n", chID, err)
+			continue
+		}
+		if !b.IsInShard(ch.GuildID) {
+			continue
+		}
 		err = b.loadChannel(chID)
 
-		errHandled := b.handleCriticalPermissionsErrors(chID, err)
+		errHandled = b.handleCriticalPermissionsErrors(chID, err)
 
 		if os.IsNotExist(err) {
 			fmt.Printf("Error loading configuration for %s: configuration file does not exist\n", chID)
