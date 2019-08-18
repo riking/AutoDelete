@@ -4,10 +4,54 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+var (
+	metricBulkDeleteErrors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "autodelete",
+			Name:      "bulk_delete_errors",
+			Help:      "distinct error codes from BulkDelete",
+		},
+		[]string{fieldErrorCode},
+	)
+	metricSingleDeleteErrors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "autodelete",
+			Name:      "single_delete_errors",
+			Help:      "distinct error codes from MessageDelete",
+		},
+		[]string{fieldErrorCode},
+	)
+	metricBacklogErrors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "autodelete",
+			Name:      "channel_messages_errors",
+			Help:      "distinct error codes from LoadBacklog's ChannelMessages",
+		},
+		[]string{fieldErrorCode},
+	)
+	metricPinsErrors = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "autodelete",
+			Name:      "get_pins_errors",
+			Help:      "distinct error codes from ChannelPins",
+		},
+		[]string{fieldErrorCode},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(metricBulkDeleteFailures)
+	prometheus.MustRegister(metricSingleDeleteFailures)
+	prometheus.MustRegister(metricBacklogErrors)
+	prometheus.MustRegister(metricPinsErrors)
+}
 
 type smallMessage struct {
 	MessageID string
@@ -24,6 +68,11 @@ const backlogAutoReloadPreFraction = 0.8
 const backlogAutoReloadDeleteFraction = 0.25
 
 type ManagedChannel struct {
+	// Atomic variables for use by the metrics collectors.
+	// Must be the first fields of the struct.
+	NumKeepMessages int64
+	NumLiveMessages int64
+
 	bot     *Bot
 	Channel *discordgo.Channel
 	GuildID string
@@ -80,6 +129,7 @@ func InitChannel(b *Bot, chConf ManagedChannelMarshal) (*ManagedChannel, error) 
 		MaxMessages:     chConf.MaxMessages,
 		LastSentUpdate:  chConf.LastSentUpdate,
 		KeepMessages:    chConf.KeepMessages,
+		NumKeepMessages: len(chConf.KeepMessages),
 		IsDonor:         chConf.IsDonor,
 		needsExport:     needsExport,
 		isStarted:       make(chan struct{}),
@@ -143,11 +193,13 @@ func (c *ManagedChannel) LoadBacklog() error {
 
 	// Load messages & pins
 	msgs, err := c.bot.s.ChannelMessages(c.Channel.ID, 100, "", "", "")
+	reportDiscordError(metricBacklogErrors, err)
 	if err != nil {
 		fmt.Println("[ERR ] could not load backlog for", c.Channel.ID, err)
 		return err
 	}
 	pins, pinsErr := c.loadPins()
+	reportDiscordError(metricPinsErrors, err)
 	if pinsErr != nil {
 		fmt.Println("[ERR ] could not load pins for", c.Channel.ID, pinsErr)
 
@@ -202,6 +254,10 @@ func (c *ManagedChannel) LoadBacklog() error {
 		close(c.isStarted)
 		inited = "initialized"
 	}
+
+	// metric export
+	atomic.StoreInt64(&c.NumKeepMessages, len(c.keepLookup))
+	atomic.StoreInt64(&c.NumLiveMessages, len(c.liveMessages))
 	fmt.Printf("[load] %s #%s %s, %d msgs %d keeps\n", c.Channel.ID, c.Channel.Name, inited, len(c.liveMessages), len(c.keepLookup))
 	return nil
 }
@@ -241,6 +297,7 @@ func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 		MessageID: m.ID,
 		PostedAt:  time.Now(),
 	})
+	atomic.StoreInt64(&c.NumLiveMessages, len(c.liveMessages))
 	c.mu.Unlock()
 
 	if needReap {
@@ -289,11 +346,15 @@ func (c *ManagedChannel) UpdatePins(newLpts string) {
 
 	fmt.Println("[pins] update for", c.Channel.ID, c.Channel.Name, "-", len(newKeep), "keep", len(dropMsgs), "drop")
 	c.keepLookup = newKeep
+	atomic.StoreInt64(&c.NumKeepMessages, len(c.keepLookup))
+	atomic.StoreInt64(&c.NumLiveMessages, len(c.liveMessages))
 	// deferred function calls AddMessage for each of dropMsgs
 }
 
 // DoNotDeleteMessage marks a message ID as not for deletion.
-// only called from UpdatePins()
+//
+// - only called from UpdatePins()
+// - does not update Num* fields, UpdatePins will do that
 func (c *ManagedChannel) DoNotDeleteMessage(msgID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -373,6 +434,7 @@ nobulk:
 	case true:
 		for len(msgs) > 50 {
 			err := c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs[:50])
+			reportDiscordError(metricBulkDeleteFailures, err)
 			if rErr, ok := err.(*discordgo.RESTError); ok {
 				if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
 					break nobulk
@@ -386,6 +448,7 @@ nobulk:
 		}
 		err = c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs)
 		count += len(msgs)
+		reportDiscordError(metricBulkDeleteFailures, err)
 		if rErr, ok := err.(*discordgo.RESTError); ok {
 			if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
 				break nobulk
@@ -402,6 +465,7 @@ nobulk:
 	go func() {
 		for _, msg := range msgs {
 			err = c.bot.s.ChannelMessageDelete(c.Channel.ID, msg)
+			reportDiscordError(metricSingleDeleteFailures, err)
 			if err != nil {
 				fmt.Println("Error in single-message delete:", err, c.Channel.ID, msg)
 			}
@@ -411,6 +475,21 @@ nobulk:
 	}()
 	return -1, nil
 }
+
+var (
+	metricMessagesDeleted = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "autodelete",
+			Name:      "messages_deleted_total",
+			Help:      "counts how many messages collectMessagesToDelete returns",
+		},
+		[]string{"horizon_recheck"},
+	)
+	horizonRecheckNo  = prometheus.Labels{"horizon_recheck": "no"}
+	horizonRecheckYes = prometheus.Labels{"horizon_recheck": "yes"}
+)
+
+func init() { prometheus.MustRegister(metricMessagesDeleted) }
 
 // returns and removes the messages that need to be deleted right now.
 //
@@ -461,6 +540,15 @@ func (c *ManagedChannel) collectMessagesToDelete() ([]string, bool) {
 		}
 	}
 
-	return toDelete, ((nLiveMessages >= backlogReloadLimit*backlogAutoReloadPreFraction) &&
+	atomic.StoreInt64(&c.NumLiveMessages, len(c.liveMessages))
+
+	horizonRecheck := ((nLiveMessages >= backlogReloadLimit*backlogAutoReloadPreFraction) &&
 		(len(toDelete) > backlogReloadLimit*backlogAutoReloadDeleteFraction))
+	if horizonRecheck {
+		metricMessagesDeleted.With(horizonRecheckYes).Add(len(toDelete))
+	} else {
+		metricMessagesDeleted.With(horizonRecheckNo).Add(len(toDelete))
+	}
+
+	return toDelete, horizonRecheck
 }
