@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"net/http"
+	rdebug "runtime/debug"
 
 	"github.com/riking/AutoDelete"
 	"gopkg.in/yaml.v2"
@@ -47,6 +48,13 @@ func main() {
 		fmt.Println("connect error:", err)
 		return
 	}
+
+	go func() {
+		for {
+			time.Sleep(time.Hour*1)
+			rdebug.FreeOSMemory()
+		}
+	}()
 
 	if !*flagNoHttp {
 		fmt.Printf("url: %s%s\n", conf.HTTP.Public, "/discord_auto_delete/oauth/start")
