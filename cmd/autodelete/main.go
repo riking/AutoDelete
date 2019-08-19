@@ -1,13 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	rdebug "runtime/debug"
+	"time"
 
-	"github.com/riking/AutoDelete"
+	autodelete "github.com/riking/AutoDelete"
 	"gopkg.in/yaml.v2"
 )
 
@@ -51,7 +52,7 @@ func main() {
 
 	go func() {
 		for {
-			time.Sleep(time.Hour*1)
+			time.Sleep(time.Hour * 1)
 			rdebug.FreeOSMemory()
 		}
 	}()
@@ -63,6 +64,6 @@ func main() {
 		err = http.ListenAndServe(conf.HTTP.Listen, nil)
 		fmt.Println("exiting main()", err)
 	} else {
-		select{}
+		select {}
 	}
 }
