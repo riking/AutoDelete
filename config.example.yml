@@ -1,6 +1,9 @@
+#create a bot to obtain tokens: https://discordapp.com/developers/applications/ 
 clientid:
 clientsecret:
 bottoken:
-http:
+errorlog:
+shards: 1 #needs at least one shard
+http: #used for public oauth
   listen: "localhost:2202"
-  public: "https://home.riking.org"
+  public: "https://example.com"
