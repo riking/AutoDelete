@@ -47,11 +47,11 @@ type Config struct {
 	Shards       int    `yaml:"shards"`
 	ErrorLogCh   string `yaml:"errorlog"`
 	AdminUserID  string `yaml:"adminuser"`
+	GameStatusMsg    string `yaml:"statusmsg"`
 	HTTP         struct {
 		Listen string `yaml:"listen"`
 		Public string `yaml:"public"`
 	} `yaml:"http"`
-	GameStatusMsg    string `yaml:"statusmsg"`
 	//Database struct {
 	//	Driver string `yaml:"driver"`
 	//	URL    string `yaml:"url"`
