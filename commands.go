@@ -56,7 +56,7 @@ func CommandAdminHelp(b *Bot, m *discordgo.Message, rest []string) {
 func CommandAdminSay(b *Bot, m *discordgo.Message, rest []string) {
 	channelID := rest[0]
 
-	if m.Author.ID != b.adminUserID {
+	if m.Author.ID != b.AdminUserID {
 		return
 	}
 
@@ -181,7 +181,7 @@ func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {
 			b.s.ChannelMessageSend(m.ChannelID, "Leaving the current server requires MANAGE_SERVER permission.")
 		}
 	} else {
-		if m.Author.ID != adminUserID {
+		if m.Author.ID != b.AdminUserID {
 			b.s.ChannelMessageSend(m.ChannelID, "Leaving other servers can only be done by the bot controller.")
 			return
 		}
