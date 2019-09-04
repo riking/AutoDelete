@@ -5,7 +5,8 @@ bottoken:
 errorlog:
 adminuser:
 shards: 1 #needs at least one shard
+statusmsg: "in the garbage"
 http: #used for public oauth
   listen: "localhost:2202"
   public: "https://example.com"
-statusmsg: "in the garbage"
+
