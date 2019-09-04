@@ -46,7 +46,7 @@ type Config struct {
 	BotToken     string `yaml:"bottoken"`
 	Shards       int    `yaml:"shards"`
 	ErrorLogCh   string `yaml:"errorlog"`
-	adminUserID  string `yaml:"adminuser"`
+	AdminUserID  string `yaml:"adminuser"`
 	HTTP         struct {
 		Listen string `yaml:"listen"`
 		Public string `yaml:"public"`
