@@ -8,3 +8,4 @@ shards: 1 #needs at least one shard
 http: #used for public oauth
   listen: "localhost:2202"
   public: "https://example.com"
+statusmsg: "in the garbage"
