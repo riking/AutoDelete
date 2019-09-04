@@ -51,6 +51,7 @@ type Config struct {
 		Listen string `yaml:"listen"`
 		Public string `yaml:"public"`
 	} `yaml:"http"`
+	GameStatusMsg    string `yaml:"statusmsg"`
 	//Database struct {
 	//	Driver string `yaml:"driver"`
 	//	URL    string `yaml:"url"`
