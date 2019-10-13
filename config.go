@@ -44,6 +44,7 @@ type Config struct {
 	ClientID     string `yaml:"clientid"`
 	ClientSecret string `yaml:"clientsecret"`
 	BotToken     string `yaml:"bottoken"`
+	AdminUser    string `yaml:"adminuser"`
 	Shards       int    `yaml:"shards"`
 	ErrorLogCh   string `yaml:"errorlog"`
 	HTTP         struct {

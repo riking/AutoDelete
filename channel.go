@@ -42,8 +42,14 @@ type ManagedChannel struct {
 	needsExport    bool
 	// if false, need to check channel history for messages
 	isStarted    chan struct{}
+	// liveMessages contains a list of message IDs and the timestamp they
+	// were posted at, listing the candidates for deletion in this channel.
+	// It should always be sorted with the oldest messages at index 0 and
+	// the newer messages at higher indices.
 	liveMessages []smallMessage
+	// Set of message IDs that need to be kept and not deleted.
 	keepLookup   map[string]bool
+	// dead code?
 	loadFailures time.Duration
 }
 

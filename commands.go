@@ -16,8 +16,6 @@ const textHelp = `Commands:
   @AutoDelete adminhelp [anything...] - forwards your request to the help server
 For more help, join the help server: <https://discord.gg/FUGn8yE>`
 
-const adminUserID = `82592645502734336`
-
 const emojiBusy = `🔄`
 const emojiDone = `✅`
 
@@ -58,7 +56,7 @@ func CommandAdminHelp(b *Bot, m *discordgo.Message, rest []string) {
 func CommandAdminSay(b *Bot, m *discordgo.Message, rest []string) {
 	channelID := rest[0]
 
-	if m.Author.ID != adminUserID {
+	if m.Author.ID != b.Config.AdminUser {
 		return
 	}
 
@@ -183,7 +181,7 @@ func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {
 			b.s.ChannelMessageSend(m.ChannelID, "Leaving the current server requires MANAGE_SERVER permission.")
 		}
 	} else {
-		if m.Author.ID != adminUserID {
+		if m.Author.ID != b.Config.AdminUser {
 			b.s.ChannelMessageSend(m.ChannelID, "Leaving other servers can only be done by the bot controller.")
 			return
 		}
