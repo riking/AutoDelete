@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/pprof"
 	rdebug "runtime/debug"
 	"time"
 
@@ -12,8 +13,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var flagShardCount = flag.Int("shard", -1, "shard ID of this bot")
+var flagShardID = flag.Int("shard", -1, "shard ID of this bot")
 var flagNoHttp = flag.Bool("nohttp", false, "skip http handler")
+var flagMetricsPort = flag.Int("metrics", 6130, "port for metrics listener; shard ID is added")
+var flagMetricsListen = flag.String("metricslisten", "127.0.0.4", "addr to listen on for metrics handler")
 
 func main() {
 	var conf autodelete.Config
@@ -33,22 +36,25 @@ func main() {
 	if conf.BotToken == "" {
 		fmt.Println("bot token must be specified")
 	}
-	if conf.Shards > 0 && *flagShardCount == -1 {
+	if conf.Shards > 0 && *flagShardID == -1 {
 		fmt.Println("This AutoDelete instance is configured to be sharded; please specify --shard=n")
 		return
 	}
-	if *flagShardCount > conf.Shards {
+	if *flagShardID > conf.Shards {
 		fmt.Println("error: shard nbr is > shard count")
 		return
 	}
 
 	b := autodelete.New(conf)
 
-	err = b.ConnectDiscord(*flagShardCount, conf.Shards)
+	err = b.ConnectDiscord(*flagShardID, conf.Shards)
 	if err != nil {
 		fmt.Println("connect error:", err)
 		return
 	}
+
+	var privHttp http.ServeMux
+	var pubHttp http.ServeMux
 
 	go func() {
 		for {
@@ -56,12 +62,27 @@ func main() {
 			rdebug.FreeOSMemory()
 		}
 	}()
+	go func() {
+		privHttp.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+		// privHttp.Handle("/metrics", promhttp.Handler())
+		metricSvr := &http.Server{
+			Handler: &privHttp,
+			Addr:    fmt.Sprintf("%s:%d", *flagMetricsListen, *flagMetricsPort+*flagShardID),
+		}
+
+		err := metricSvr.ListenAndServe()
+		fmt.Println("exiting metric server", err)
+	}()
 
 	if !*flagNoHttp {
 		fmt.Printf("url: %s%s\n", conf.HTTP.Public, "/discord_auto_delete/oauth/start")
-		http.HandleFunc("/discord_auto_delete/oauth/start", b.HTTPOAuthStart)
-		http.HandleFunc("/discord_auto_delete/oauth/callback", b.HTTPOAuthCallback)
-		err = http.ListenAndServe(conf.HTTP.Listen, nil)
+		pubHttp.HandleFunc("/discord_auto_delete/oauth/start", b.HTTPOAuthStart)
+		pubHttp.HandleFunc("/discord_auto_delete/oauth/callback", b.HTTPOAuthCallback)
+		pubSrv := &http.Server{
+			Handler: &pubHttp,
+			Addr:    conf.HTTP.Listen,
+		}
+		err = pubSrv.ListenAndServe()
 		fmt.Println("exiting main()", err)
 	} else {
 		select {}
