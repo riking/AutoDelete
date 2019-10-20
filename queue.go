@@ -143,6 +143,13 @@ func (b *Bot) QueueReap(c *ManagedChannel) {
 	b.reaper.Update(c, reapTime)
 }
 
+// Removes the given channel from the reaper, assuming that IsDisabled() will
+// return true for the passed ManagedChannel.
+func (b *Bot) CancelReap(c *ManagedChannel) {
+	var zeroTime time.Time
+	b.reaper.Update(c, zeroTime)
+}
+
 func (b *Bot) QueueLoadBacklog(c *ManagedChannel, didFail bool) {
 	c.mu.Lock()
 	loadDelay := c.loadFailures
@@ -197,18 +204,21 @@ func (b *Bot) loadWorker(q *reapQueue) {
 func (b *Bot) reapWorker(q *reapQueue) {
 	for work := range q.workCh {
 		ch := work.ch
-		msgs, shouldQueueBacklog := ch.collectMessagesToDelete()
+		msgs, shouldQueueBacklog, isDisabled := ch.collectMessagesToDelete()
+		if isDisabled {
+			continue // drop ch
+		}
 
-		fmt.Printf("[reap] %s #%s: deleting %d messages\n", ch.Channel.ID, ch.Channel.Name, len(msgs))
+		fmt.Printf("[reap] %s: deleting %d messages\n", ch, len(msgs))
 		count, err := ch.Reap(msgs)
-		if b.handleCriticalPermissionsErrors(ch.Channel.ID, err) {
-			continue
+		if b.handleCriticalPermissionsErrors(ch.ChannelID, err) {
+			continue // drop ch
 		}
 		if err != nil {
-			fmt.Printf("[reap] %s #%s: deleted %d, got error: %v\n", ch.Channel.ID, ch.Channel.Name, count, err)
+			fmt.Printf("[reap] %s: deleted %d, got error: %v\n", ch, count, err)
 			shouldQueueBacklog = true
 		} else if count == -1 {
-			fmt.Printf("[reap] %s #%s: doing single-message delete\n", ch.Channel.ID, ch.Channel.Name)
+			fmt.Printf("[reap] %s: doing single-message delete\n", ch)
 		}
 
 		q.curMu.Lock()

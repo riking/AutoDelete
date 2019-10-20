@@ -12,9 +12,6 @@ import (
 type smallMessage struct {
 	MessageID string
 	PostedAt  time.Time
-
-	// implicit in which ManagedChannel this is a member of
-	//ChannelID string
 }
 
 const minTimeBetweenDeletion = time.Second * 5
@@ -23,10 +20,12 @@ const backlogReloadLimit = 100
 const backlogAutoReloadPreFraction = 0.8
 const backlogAutoReloadDeleteFraction = 0.25
 
+// A ManagedChannel holds all the AutoDelete-related state for a Discord channel.
 type ManagedChannel struct {
-	bot     *Bot
-	Channel *discordgo.Channel
-	GuildID string
+	bot         *Bot
+	ChannelID   string
+	ChannelName string
+	GuildID     string
 
 	mu              sync.Mutex
 	backlogMu       sync.Mutex // only for LoadBacklog()
@@ -40,36 +39,25 @@ type ManagedChannel struct {
 	LastSentUpdate int
 	IsDonor        bool
 	needsExport    bool
+
+	// If true, this ManagedChannel has been disabled; the Bot might have a
+	// new version. The reaper thread should throw it out.
+	// Observed in the return of collectMessagesToDelete.
+	killBit bool
+
 	// if false, need to check channel history for messages
-	isStarted    chan struct{}
+	isStarted chan struct{}
 	// liveMessages contains a list of message IDs and the timestamp they
 	// were posted at, listing the candidates for deletion in this channel.
 	// It should always be sorted with the oldest messages at index 0 and
 	// the newer messages at higher indices.
 	liveMessages []smallMessage
 	// Set of message IDs that need to be kept and not deleted.
-	keepLookup   map[string]bool
-	// dead code?
-	loadFailures time.Duration
-}
-
-func (c *ManagedChannel) Export() ManagedChannelMarshal {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	return ManagedChannelMarshal{
-		ID:             c.Channel.ID,
-		GuildID:        c.Channel.GuildID,
-		LiveTime:       c.MessageLiveTime,
-		MaxMessages:    c.MaxMessages,
-		LastSentUpdate: c.LastSentUpdate,
-		KeepMessages:   c.KeepMessages,
-		IsDonor:        c.IsDonor,
-	}
+	keepLookup map[string]bool
 }
 
 func InitChannel(b *Bot, chConf ManagedChannelMarshal) (*ManagedChannel, error) {
-	disCh, err := b.s.Channel(chConf.ID)
+	disCh, err := b.Channel(chConf.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +67,8 @@ func InitChannel(b *Bot, chConf ManagedChannelMarshal) (*ManagedChannel, error) 
 	}
 	return &ManagedChannel{
 		bot:             b,
-		Channel:         disCh,
+		ChannelID:       disCh.ID,
+		ChannelName:     disCh.Name,
 		GuildID:         disCh.GuildID,
 		minNextDelete:   time.Now(),
 		MessageLiveTime: chConf.LiveTime,
@@ -94,17 +83,73 @@ func InitChannel(b *Bot, chConf ManagedChannelMarshal) (*ManagedChannel, error) 
 	}, nil
 }
 
+func (c *ManagedChannel) Export() ManagedChannelMarshal {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return ManagedChannelMarshal{
+		ID:             c.ChannelID,
+		GuildID:        c.GuildID,
+		LiveTime:       c.MessageLiveTime,
+		MaxMessages:    c.MaxMessages,
+		LastSentUpdate: c.LastSentUpdate,
+		KeepMessages:   c.KeepMessages,
+		IsDonor:        c.IsDonor,
+	}
+}
+
+func (c *ManagedChannel) String() string {
+	return fmt.Sprintf("%s #%s", c.ChannelID, c.ChannelName)
+}
+
+// Remove this channel from all relevant datastructures.
+//
+// Must be called with no locks held. Takes Bot, self, and reapq locks.
+// Can be called on a fake ManagedChannel instance (e.g. (&ManagedChannel{ChannelID: ...}).Disable()), so the only member assumed valid is bot and ChannelID.
+func (c *ManagedChannel) Disable() {
+	// first: block anything from finding us
+	c.bot.mu.Lock()
+	delete(c.bot.channels, c.ChannelID)
+	c.bot.mu.Unlock()
+
+	// reset internal state
+	c.mu.Lock()
+	c.liveMessages = nil
+	c.keepLookup = nil
+
+	c.killBit = true // ensure reapq gets our drop message
+	c.mu.Unlock()
+
+	// drop from reapq
+	c.bot.CancelReap(c)
+}
+
+// Get a discord Channel. Results are cached in the library State.
+func (b *Bot) Channel(channelID string) (*discordgo.Channel, error) {
+	ch, err := b.s.State.Channel(channelID)
+	if ch != nil {
+		return ch, nil
+	}
+	ch, err = b.s.Channel(channelID)
+	if err != nil {
+		return ch, err
+	}
+	b.s.State.ChannelAdd(ch)
+	return ch, nil
+}
+
 func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
-	disCh, err := c.bot.s.Channel(c.Channel.ID)
+	disCh, err := c.bot.Channel(c.ChannelID)
 	if err != nil {
 		return nil, err
 	}
+
 	if disCh.LastPinTimestamp == nil {
 		return nil, nil
 	} else {
-		fmt.Println("[load]", "loading pins for", c.Channel.ID)
+		fmt.Println("[load]", "loading pins for", c.ChannelID)
 		// Inlined ChannelMessagesPinned with the ratelimit bucket replaced
-		body, err := c.bot.s.RequestWithBucketID("GET", discordgo.EndpointChannelMessagesPins(c.Channel.ID), nil, "/custom/pinsGlobal")
+		body, err := c.bot.s.RequestWithBucketID("GET", discordgo.EndpointChannelMessagesPins(c.ChannelID), nil, "/custom/pinsGlobal")
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +181,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 	}
 	c.mu.Unlock()
 	if earlyExit {
-		fmt.Println("[WARN] Cancelling LoadBacklog for", c.Channel.ID, "due to <30s elapsed")
+		fmt.Println("[WARN] Cancelling LoadBacklog for", c, "due to <30s elapsed")
 		return nil
 	}
 	// Clear the progress flag if we set it
@@ -148,17 +193,17 @@ func (c *ManagedChannel) LoadBacklog() error {
 	}()
 
 	// Load messages & pins
-	msgs, err := c.bot.s.ChannelMessages(c.Channel.ID, 100, "", "", "")
+	msgs, err := c.bot.s.ChannelMessages(c.ChannelID, 100, "", "", "")
 	if err != nil {
-		fmt.Println("[ERR ] could not load backlog for", c.Channel.ID, err)
+		fmt.Println("[ERR ] could not load backlog for", c, err)
 		return err
 	}
 	pins, pinsErr := c.loadPins()
 	if pinsErr != nil {
-		fmt.Println("[ERR ] could not load pins for", c.Channel.ID, pinsErr)
+		fmt.Println("[ERR ] could not load pins for", c, pinsErr)
 
 		// experiment with a notice
-		//c.bot.s.ChannelMessageSend(c.Channel.ID,
+		//c.bot.s.ChannelMessageSend(c.ChannelID,
 		//	":warning: Failed to load channel pins, may accidentally delete them",
 		//)
 		return pinsErr
@@ -168,7 +213,6 @@ func (c *ManagedChannel) LoadBacklog() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.loadFailures = 0
 	c.keepLookup = make(map[string]bool)
 	for i := range pins {
 		c.keepLookup[pins[i].ID] = true
@@ -208,7 +252,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 		close(c.isStarted)
 		inited = "initialized"
 	}
-	fmt.Printf("[load] %s #%s %s, %d msgs %d keeps\n", c.Channel.ID, c.Channel.Name, inited, len(c.liveMessages), len(c.keepLookup))
+	fmt.Printf("[load] %s %s, %d msgs %d keeps\n", c.String(), inited, len(c.liveMessages), len(c.keepLookup))
 	return nil
 }
 
@@ -263,7 +307,7 @@ func (c *ManagedChannel) UpdatePins(newLpts string) {
 		// non-chronologically, but it avoids chopping the backlog back to 100
 		// messages.
 		for _, v := range dropMsgs {
-			msg, err := c.bot.s.ChannelMessage(c.Channel.ID, v)
+			msg, err := c.bot.s.ChannelMessage(c.ChannelID, v)
 			if err == nil {
 				c.AddMessage(msg)
 			}
@@ -272,9 +316,9 @@ func (c *ManagedChannel) UpdatePins(newLpts string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	pins, err := c.bot.s.ChannelMessagesPinned(c.Channel.ID)
+	pins, err := c.bot.s.ChannelMessagesPinned(c.ChannelID)
 	if err != nil {
-		fmt.Println("[pins] could not load pins for", c.Channel.ID, err)
+		fmt.Println("[pins] could not load pins for", c, err)
 		return
 	}
 
@@ -293,7 +337,7 @@ func (c *ManagedChannel) UpdatePins(newLpts string) {
 		}
 	}
 
-	fmt.Println("[pins] update for", c.Channel.ID, c.Channel.Name, "-", len(newKeep), "keep", len(dropMsgs), "drop")
+	fmt.Println("[pins] update for", c, "-", len(newKeep), "keep", len(dropMsgs), "drop")
 	c.keepLookup = newKeep
 	// deferred function calls AddMessage for each of dropMsgs
 }
@@ -324,7 +368,7 @@ func (c *ManagedChannel) DoNotDeleteMessage(msgID string) {
 func (c *ManagedChannel) Enabled() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.MessageLiveTime > 0 || c.MaxMessages > 0
+	return !c.killBit && (c.MessageLiveTime > 0 || c.MaxMessages > 0)
 }
 
 func (c *ManagedChannel) SetLiveTime(d time.Duration) {
@@ -378,7 +422,7 @@ nobulk:
 	switch {
 	case true:
 		for len(msgs) > 50 {
-			err := c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs[:50])
+			err := c.bot.s.ChannelMessagesBulkDelete(c.ChannelID, msgs[:50])
 			if rErr, ok := err.(*discordgo.RESTError); ok {
 				if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
 					break nobulk
@@ -390,7 +434,7 @@ nobulk:
 			msgs = msgs[50:]
 			count += 50
 		}
-		err = c.bot.s.ChannelMessagesBulkDelete(c.Channel.ID, msgs)
+		err = c.bot.s.ChannelMessagesBulkDelete(c.ChannelID, msgs)
 		count += len(msgs)
 		if rErr, ok := err.(*discordgo.RESTError); ok {
 			if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
@@ -407,9 +451,9 @@ nobulk:
 	// Spin up a separate goroutine - this could take a while
 	go func() {
 		for _, msg := range msgs {
-			err = c.bot.s.ChannelMessageDelete(c.Channel.ID, msg)
+			err = c.bot.s.ChannelMessageDelete(c.ChannelID, msg)
 			if err != nil {
-				fmt.Println("Error in single-message delete:", err, c.Channel.ID, msg)
+				fmt.Printf("[ERR ] %s: single-message delete: %v (on %v)\n", c, err, msg)
 			}
 		}
 		// re-load the backlog in case this surfaced more things to delete
@@ -422,10 +466,15 @@ nobulk:
 //
 // also sets the minNextDelete and returns whether we think there could be more
 // messages past the backlog horizon
-func (c *ManagedChannel) collectMessagesToDelete() ([]string, bool) {
+func (c *ManagedChannel) collectMessagesToDelete() (m []string, needsQueueBacklog, isDisabled bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.minNextDelete = time.Now().Add(minTimeBetweenDeletion)
+
+	// Mechanism for getting channels dropped from the reaper
+	if c.killBit {
+		return nil, false, true
+	}
 
 	var toDelete []string
 	var oldest time.Time
@@ -468,5 +517,5 @@ func (c *ManagedChannel) collectMessagesToDelete() ([]string, bool) {
 	}
 
 	return toDelete, ((nLiveMessages >= backlogReloadLimit*backlogAutoReloadPreFraction) &&
-		(len(toDelete) > backlogReloadLimit*backlogAutoReloadDeleteFraction))
+		(len(toDelete) > backlogReloadLimit*backlogAutoReloadDeleteFraction)), false
 }

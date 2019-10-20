@@ -132,15 +132,15 @@ func (b *Bot) saveChannelConfig(conf ManagedChannelMarshal) error {
 }
 
 func (b *Bot) deleteChannelConfig(chID string) error {
+	// i love layering violations
+	(&ManagedChannel{bot: b, ChannelID: chID}).Disable()
+
 	err := b.storage.DeleteChannel(chID)
 	if err != nil {
 		fmt.Println("failed to delete channel config for", chID, ":", err)
 		// continue
 	}
 
-	b.mu.Lock()
-	delete(b.channels, chID)
-	b.mu.Unlock()
 	return err
 }
 
