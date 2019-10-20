@@ -15,7 +15,7 @@ type smallMessage struct {
 }
 
 const minTimeBetweenDeletion = time.Second * 5
-const minTimeBetweenLoadBacklog = time.Second * 30
+const minTimeBetweenLoadBacklog = time.Millisecond * 30
 const backlogReloadLimit = 100
 const backlogAutoReloadPreFraction = 0.8
 const backlogAutoReloadDeleteFraction = 0.25
