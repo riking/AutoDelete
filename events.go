@@ -26,6 +26,15 @@ func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 		return err
 	}
 	b.s = s
+	state := discordgo.NewState()
+	state.TrackChannels = true
+	state.TrackEmojis = false
+	state.TrackMembers = false
+	state.TrackRoles = false
+	state.TrackVoice = false
+	state.TrackPresences = false
+	state.MaxMessageCount = 0
+	s.State = state
 
 	// Configure the HTTP client
 	runtimeCookieJar, err := cookiejar.New(nil)
@@ -54,7 +63,8 @@ func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 	// Add event handlers
 	s.AddHandler(b.OnReady)
 	s.AddHandler(b.OnResume)
-	s.AddHandler(b.OnChannelCreate)
+	s.AddHandler(b.OnChannelDelete)
+	s.AddHandler(b.OnGuildRemove)
 	s.AddHandler(b.OnChannelPins)
 	s.AddHandler(b.HandleMentions)
 	s.AddHandler(b.OnMessage)
@@ -135,8 +145,20 @@ func (b *Bot) OnMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 }
 
-func (b *Bot) OnChannelCreate(s *discordgo.Session, ch *discordgo.ChannelCreate) {
-	// No action, need a config message
+func (b *Bot) OnChannelDelete(s *discordgo.Session, ev *discordgo.ChannelDelete) {
+	b.mu.RLock()
+	mCh, ok := b.channels[ev.Channel.ID]
+	b.mu.RUnlock()
+	if !ok || mCh == nil {
+		return
+	}
+
+	mCh.Disable()
+}
+
+func (b *Bot) OnGuildRemove(s *discordgo.Session, ev *discordgo.GuildDelete) {
+	// TODO
+	fmt.Println("[todo] Got GuildDelete for id", ev.ID)
 }
 
 func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdate) {
@@ -147,18 +169,19 @@ func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdat
 		return
 	}
 
-	disCh, err := s.Channel(ev.ChannelID)
+	disCh, err := b.Channel(ev.ChannelID)
 	if err != nil {
 		fmt.Println("[pins] error fetching channel:", err)
 		return
 	}
+
 	if ev.LastPinTimestamp == "" {
 		disCh.LastPinTimestamp = nil
 	} else {
 		var ts = discordgo.Timestamp(ev.LastPinTimestamp)
 		disCh.LastPinTimestamp = &ts
 	}
-	fmt.Println("[pins] got pins update for", mCh.Channel.ID, mCh.Channel.Name, "- new lpts", ev.LastPinTimestamp)
+	fmt.Printf("[pins] got pins update for %s - new lpts %s\n", mCh, ev.LastPinTimestamp)
 	mCh.UpdatePins(ev.LastPinTimestamp)
 }
 
