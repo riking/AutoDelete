@@ -54,6 +54,8 @@ type ManagedChannel struct {
 	liveMessages []smallMessage
 	// Set of message IDs that need to be kept and not deleted.
 	keepLookup map[string]bool
+	// Used in queue.go for exponential backoff
+	loadFailures time.Duration
 }
 
 func InitChannel(b *Bot, chConf ManagedChannelMarshal) (*ManagedChannel, error) {
