@@ -459,7 +459,7 @@ nobulk:
 			}
 		}
 		// re-load the backlog in case this surfaced more things to delete
-		c.bot.QueueLoadBacklog(c, false)
+		c.bot.QueueLoadBacklog(c, true)
 	}()
 	return -1, nil
 }

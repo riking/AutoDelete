@@ -226,7 +226,7 @@ func (b *Bot) reapWorker(q *reapQueue) {
 		q.curMu.Unlock()
 		b.QueueReap(ch)
 		if shouldQueueBacklog {
-			b.QueueLoadBacklog(ch, false)
+			b.QueueLoadBacklog(ch, /* didFail= */ true) // add extra delay
 		}
 	}
 }

@@ -293,6 +293,6 @@ func (b *Bot) loadChannel(channelID string) error {
 	b.channels[channelID] = mCh
 	b.mu.Unlock()
 
-	b.QueueLoadBacklog(mCh, true)
+	b.QueueLoadBacklog(mCh, false)
 	return nil
 }
