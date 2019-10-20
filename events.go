@@ -11,12 +11,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+const userAgent = "AutoDelete (https://github.com/riking/AutoDelete, v1.4)"
+
 type userAgentSetter struct {
 	t http.RoundTripper
 }
 
 func (u *userAgentSetter) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("User-Agent", "AutoDelete (https://github.com/riking/AutoDelete, v1.4)")
+	req.Header.Set("User-Agent", userAgent)
 	return u.t.RoundTrip(req)
 }
 
@@ -37,6 +39,7 @@ func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 	s.State = state
 
 	// Configure the HTTP client
+	s.UserAgent = userAgent
 	runtimeCookieJar, err := cookiejar.New(nil)
 	if err != nil {
 		return err
@@ -176,10 +179,9 @@ func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdat
 	}
 
 	if ev.LastPinTimestamp == "" {
-		disCh.LastPinTimestamp = nil
+		disCh.LastPinTimestamp = ""
 	} else {
-		var ts = discordgo.Timestamp(ev.LastPinTimestamp)
-		disCh.LastPinTimestamp = &ts
+		disCh.LastPinTimestamp = discordgo.Timestamp(ev.LastPinTimestamp)
 	}
 	fmt.Printf("[pins] got pins update for %s - new lpts %s\n", mCh, ev.LastPinTimestamp)
 	mCh.UpdatePins(ev.LastPinTimestamp)

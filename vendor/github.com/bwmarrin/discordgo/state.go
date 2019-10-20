@@ -83,13 +83,15 @@ func (s *State) GuildAdd(guild *Guild) error {
 	s.Lock()
 	defer s.Unlock()
 
-	// Update the channels to point to the right guild, adding them to the channelMap as we go
-	for _, c := range guild.Channels {
-		s.channelMap[c.ID] = c
+	// Add all the channels to the channelMap.
+	if s.TrackChannels {
+		for _, c := range guild.Channels {
+			s.channelMap[c.ID] = c
+		}
 	}
 
 	// If this guild contains a new member slice, we must regenerate the member map so the pointers stay valid
-	if guild.Members != nil {
+	if guild.Members != nil && s.TrackMembers {
 		s.createMemberMap(guild)
 	} else if _, ok := s.memberMap[guild.ID]; !ok {
 		// Even if we have no new member slice, we still initialize the member map for this guild if it doesn't exist
@@ -882,6 +884,13 @@ func (s *State) OnInterface(se *Session, i interface{}) (err error) {
 		}
 	case *MessageUpdate:
 		if s.MaxMessageCount != 0 {
+			var old *Message
+			old, err = s.Message(t.ChannelID, t.ID)
+			if err == nil {
+				oldCopy := *old
+				t.BeforeUpdate = &oldCopy
+			}
+
 			err = s.MessageAdd(t.Message)
 		}
 	case *MessageDelete:

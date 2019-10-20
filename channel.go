@@ -146,7 +146,7 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 		return nil, err
 	}
 
-	if disCh.LastPinTimestamp == nil {
+	if disCh.LastPinTimestamp == "" {
 		return nil, nil
 	} else {
 		fmt.Println("[load]", "loading pins for", c.ChannelID)
