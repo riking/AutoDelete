@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	schedulerTimeout = 100 * time.Millisecond
+	schedulerTimeout = 250 * time.Millisecond
 	workerTimeout    = 5 * time.Second
 )
 
@@ -198,24 +198,30 @@ func reapScheduler(q *reapQueue, workerFunc func(*reapQueue, bool)) {
 }
 
 func sendWorkItem(q *reapQueue, workerFunc func(*reapQueue, bool), timer *time.Timer, work reapWorkItem) {
-	for {
-		if !timer.Stop() {
-			<-timer.C
-		}
-		timer.Reset(schedulerTimeout)
+	if !timer.Stop() {
 		select {
+		case <-timer.C:
+		default:
+			// BUG: got false from timer.Stop but nothing waiting in the channel
+			fmt.Println("[BUG ] sendWorkItem got false from timer.Stop but no value to recv.")
+		}
+	}
+	timer.Reset(schedulerTimeout)
+
+	select {
+	case q.workCh <- work:
+		return
+	case <-timer.C:
+		// Timer expired; all workers busy. Attempt to start a new worker, or block if we're maxed
+		timer.Reset(0) // prime a value for the next call
+		select {
+		case q.controlCh <- workerToken{}:
+			fmt.Printf("[reap] %p: starting new worker\n", q)
+			go workerFunc(q, true)
+			q.workCh <- work
+			return
 		case q.workCh <- work:
 			return
-		case <-timer.C:
-			// Attempt to start a new worker, or block if we can't
-			select {
-			case q.controlCh <- workerToken{}:
-				fmt.Printf("[reap] %p: starting new worker\n", q)
-				go workerFunc(q, true)
-				continue
-			case q.workCh <- work:
-				return
-			}
 		}
 	}
 }
