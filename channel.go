@@ -140,6 +140,8 @@ func (b *Bot) Channel(channelID string) (*discordgo.Channel, error) {
 	return ch, nil
 }
 
+const useRatelimitWorkaround = true
+
 func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 	disCh, err := c.bot.Channel(c.ChannelID)
 	if err != nil {
@@ -148,6 +150,16 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 
 	if disCh.LastPinTimestamp == "" {
 		return nil, nil
+	} else if useRatelimitWorkaround {
+		fmt.Printf("[load] %s: loading pins\n", c)
+		// Inlined ChannelMessagesPinned with the ratelimit bucket replaced
+		body, err := c.bot.s.RequestWithBucketID("GET", discordgo.EndpointChannelMessagesPins(c.ChannelID), nil, "/custom/pinsGlobal")
+		if err != nil {
+			return nil, err
+		}
+		var st []*discordgo.Message
+		err = json.Unmarshal(body, &st)
+		return st, err
 	} else {
 		return c.bot.s.ChannelMessagesPinned(c.ChannelID)
 	}
