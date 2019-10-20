@@ -193,7 +193,7 @@ func reapScheduler(q *reapQueue, workerFunc func(*reapQueue, bool)) {
 			continue
 		}
 
-		sendWorkItem(q, workerFunc, &timer, reapWorkItem{ch: ch})
+		sendWorkItem(q, workerFunc, timer, reapWorkItem{ch: ch})
 	}
 }
 
