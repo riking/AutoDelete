@@ -1,7 +1,6 @@
 package autodelete
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
