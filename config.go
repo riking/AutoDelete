@@ -36,7 +36,7 @@ func New(c Config) *Bot {
 		loadRetries: newReapQueue(),
 	}
 	go reapScheduler(b.reaper, 4, b.reapWorker)
-	go reapScheduler(b.loadRetries, 4, b.loadWorker)
+	go reapScheduler(b.loadRetries, 10, b.loadWorker)
 	return b
 }
 
