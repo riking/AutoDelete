@@ -32,11 +32,11 @@ func New(c Config) *Bot {
 		Config:      c,
 		storage:     &DiskStorage{},
 		channels:    make(map[string]*ManagedChannel),
-		reaper:      newReapQueue(),
-		loadRetries: newReapQueue(),
+		reaper:      newReapQueue(4),
+		loadRetries: newReapQueue(100),
 	}
-	go reapScheduler(b.reaper, 4, b.reapWorker)
-	go reapScheduler(b.loadRetries, 10, b.loadWorker)
+	go reapScheduler(b.reaper, b.reapWorker)
+	go reapScheduler(b.loadRetries, b.loadWorker)
 	return b
 }
 

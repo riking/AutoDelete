@@ -104,6 +104,12 @@ func (c *ManagedChannel) String() string {
 	return fmt.Sprintf("%s #%s", c.ChannelID, c.ChannelName)
 }
 
+func (c *ManagedChannel) IsDisabled() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.killBit
+}
+
 // Remove this channel from all relevant datastructures.
 //
 // Must be called with no locks held. Takes Bot, self, and reapq locks.

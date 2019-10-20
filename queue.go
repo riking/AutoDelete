@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+const (
+	schedulerTimeout = 100 * time.Millisecond
+	workerTimeout    = 5 * time.Second
+)
+
 // An Item is something we manage in a priority queue.
 type pqItem struct {
 	ch       *ManagedChannel
@@ -61,24 +66,30 @@ type reapWorkItem struct {
 	msgs []string
 }
 
+type workerToken struct{}
+
 type reapQueue struct {
 	items  *priorityQueue
 	cond   *sync.Cond
 	timer  *time.Timer
 	workCh chan reapWorkItem
 
+	// Send when a worker starts, receive when a worker quits
+	controlCh chan workerToken
+
 	curMu   sync.Mutex
 	curWork map[*ManagedChannel]struct{}
 }
 
-func newReapQueue() *reapQueue {
+func newReapQueue(maxWorkerCount int) *reapQueue {
 	var locker sync.Mutex
 	q := &reapQueue{
-		items:   new(priorityQueue),
-		cond:    sync.NewCond(&locker),
-		timer:   time.NewTimer(0),
-		workCh:  make(chan reapWorkItem),
-		curWork: make(map[*ManagedChannel]struct{}),
+		items:     new(priorityQueue),
+		cond:      sync.NewCond(&locker),
+		timer:     time.NewTimer(0),
+		workCh:    make(chan reapWorkItem),
+		controlCh: make(chan workerToken, maxWorkerCount),
+		curWork:   make(map[*ManagedChannel]struct{}),
 	}
 	go func() {
 		// Signal the condition variable every time the timer expires.
@@ -162,10 +173,12 @@ func (b *Bot) QueueLoadBacklog(c *ManagedChannel, didFail bool) {
 	b.loadRetries.Update(c, time.Now().Add(loadDelay))
 }
 
-func reapScheduler(q *reapQueue, numWorkers int, workerFunc func(*reapQueue)) {
-	for i := 0; i < numWorkers; i++ {
-		go workerFunc(q)
-	}
+func reapScheduler(q *reapQueue, workerFunc func(*reapQueue, bool)) {
+	q.controlCh <- workerToken{}
+	go workerFunc(q, false)
+
+	var timer time.Timer
+	timer.Reset(0)  // prime timer with a value so Stop() functions correctly
 
 	for {
 		ch := q.WaitForNext()
@@ -181,27 +194,76 @@ func reapScheduler(q *reapQueue, numWorkers int, workerFunc func(*reapQueue)) {
 			continue
 		}
 
-		q.workCh <- reapWorkItem{ch: ch}
+		sendWorkItem(q, workerFunc, &timer, reapWorkItem{ch: ch})
 	}
 }
 
-func (b *Bot) loadWorker(q *reapQueue) {
-	for work := range q.workCh {
-		ch := work.ch
-
-		err := ch.LoadBacklog()
-
-		q.curMu.Lock()
-		delete(q.curWork, ch)
-		q.curMu.Unlock()
-
-		if isRetryableLoadError(err) {
-			b.QueueLoadBacklog(ch, true)
+func sendWorkItem(q *reapQueue, workerFunc func(*reapQueue, bool), timer *time.Timer, work reapWorkItem) {
+	for {
+		if !timer.Stop() {
+			<-timer.C
+		}
+		timer.Reset(schedulerTimeout)
+		select {
+		case q.workCh <- work:
+			return
+		case <-timer.C:
+			// Attempt to start a new worker, or block if we can't
+			select {
+			case q.controlCh <- workerToken{}:
+				fmt.Printf("[reap] %p: starting new worker\n", q)
+				go workerFunc(q, true)
+				continue
+			case q.workCh <- work:
+				return
+			}
 		}
 	}
 }
 
-func (b *Bot) reapWorker(q *reapQueue) {
+func (b *Bot) loadWorker(q *reapQueue, mayTimeout bool) {
+	var timer time.Timer
+
+	if mayTimeout {
+		timer.Reset(0) // prime with a value
+		defer func() {
+			<-q.controlCh // remove a worker token
+			fmt.Printf("[reap] %p: worker exiting\n", q)
+		}()
+	}
+
+	for {
+		if mayTimeout {
+			if !timer.Stop() {
+				<-timer.C
+			}
+			timer.Reset(workerTimeout)
+		}
+
+		select {
+		case <-timer.C:
+			return
+		case work := <-q.workCh:
+			ch := work.ch
+			if ch.IsDisabled() {
+				continue
+			}
+
+			err := ch.LoadBacklog()
+
+			q.curMu.Lock()
+			delete(q.curWork, ch)
+			q.curMu.Unlock()
+
+			if isRetryableLoadError(err) {
+				b.QueueLoadBacklog(ch, true)
+			}
+		}
+	}
+}
+
+func (b *Bot) reapWorker(q *reapQueue, mayTimeout bool) {
+	// TODO: implement mayTimeout
 	for work := range q.workCh {
 		ch := work.ch
 		msgs, shouldQueueBacklog, isDisabled := ch.collectMessagesToDelete()
@@ -226,7 +288,7 @@ func (b *Bot) reapWorker(q *reapQueue) {
 		q.curMu.Unlock()
 		b.QueueReap(ch)
 		if shouldQueueBacklog {
-			b.QueueLoadBacklog(ch, /* didFail= */ true) // add extra delay
+			b.QueueLoadBacklog(ch /* didFail= */, true) // add extra delay
 		}
 	}
 }
