@@ -177,8 +177,7 @@ func reapScheduler(q *reapQueue, workerFunc func(*reapQueue, bool)) {
 	q.controlCh <- workerToken{}
 	go workerFunc(q, false)
 
-	var timer time.Timer
-	timer.Reset(0)  // prime timer with a value so Stop() functions correctly
+	timer := time.NewTimer(0)
 
 	for {
 		ch := q.WaitForNext()
@@ -222,10 +221,9 @@ func sendWorkItem(q *reapQueue, workerFunc func(*reapQueue, bool), timer *time.T
 }
 
 func (b *Bot) loadWorker(q *reapQueue, mayTimeout bool) {
-	var timer time.Timer
+	timer := time.NewTimer(0)
 
 	if mayTimeout {
-		timer.Reset(0) // prime with a value
 		defer func() {
 			<-q.controlCh // remove a worker token
 			fmt.Printf("[reap] %p: worker exiting\n", q)
