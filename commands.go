@@ -153,16 +153,26 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		b.s.ChannelMessageSend(m.ChannelID, "Encountered error, settings may or may not have saved.\n"+err.Error())
 	}
 	fmt.Println("[load] Changed settings for channel", m.ChannelID, confMessage.Content)
-	if emojiErr == nil {
+
+	// Wait for LoadBacklog() to complete by watching isStarted
+	go func() {
 		channelID := m.ChannelID
 		msgID := confMessage.ID
+
+		b.mu.RLock()
+		mCh := b.channels[channelID]
+		b.mu.RUnlock()
+		if mCh != nil {
+			select {
+			case <-mCh.isStarted:
+			case <-time.After(1*time.Hour):
+			}
+		}
 		b.s.MessageReactionRemove(channelID, msgID, emojiBusy, "@me")
 		emojiErr = b.s.MessageReactionAdd(channelID, msgID, emojiDone)
-		go func() {
-			time.Sleep(30 * time.Second)
-			b.s.MessageReactionRemove(channelID, msgID, emojiDone, "@me")
-		}()
-	}
+		time.Sleep(30*time.Second)
+		b.s.MessageReactionRemove(channelID, msgID, emojiDone, "@me")
+	}()
 }
 
 func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {
