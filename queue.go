@@ -285,6 +285,7 @@ func (b *Bot) reapWorker(q *reapQueue, mayTimeout bool) {
 			shouldQueueBacklog = true
 		} else if count == -1 {
 			fmt.Printf("[reap] %s: doing single-message delete\n", ch)
+			shouldQueueBacklog = false
 		}
 
 		q.curMu.Lock()
@@ -292,7 +293,7 @@ func (b *Bot) reapWorker(q *reapQueue, mayTimeout bool) {
 		q.curMu.Unlock()
 		b.QueueReap(ch)
 		if shouldQueueBacklog {
-			b.QueueLoadBacklog(ch /* didFail= */, true) // add extra delay
+			b.QueueLoadBacklog(ch, true /* didFail */)
 		}
 	}
 }

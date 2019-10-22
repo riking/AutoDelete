@@ -274,7 +274,7 @@ func (b *Bot) LoadAllBacklogs() {
 		if c == nil {
 			continue
 		}
-		b.QueueLoadBacklog(c, /* didFail= */ false)
+		b.QueueLoadBacklog(c, false /* didFail */)
 	}
 	b.mu.RUnlock()
 }
@@ -460,7 +460,7 @@ nobulk:
 		return count, nil
 	}
 
-	// single delete required
+	// single-message delete required
 	// Spin up a separate goroutine - this could take a while
 	go func() {
 		for _, msg := range msgs {
@@ -470,7 +470,7 @@ nobulk:
 			}
 		}
 		// re-load the backlog in case this surfaced more things to delete
-		c.bot.QueueLoadBacklog(c, true)
+		c.bot.QueueLoadBacklog(c, false /*didFail*/)
 	}()
 	return -1, nil
 }
