@@ -138,7 +138,7 @@ func (b *Bot) Channel(channelID string) (*discordgo.Channel, error) {
 	if ch != nil {
 		return ch, nil
 	}
-	ch, err = b.s.Channel(channelID)
+	ch, err := b.s.Channel(channelID)
 	if err != nil {
 		return ch, err
 	}
