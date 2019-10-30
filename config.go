@@ -95,10 +95,10 @@ func (b *Bot) SaveAllChannelConfigs() []error {
 	b.mu.RLock()
 	for channelID := range b.channels {
 		wg.Add(1)
-		go func() {
+		go func(channelID string) {
 			errCh <- b.SaveChannelConfig(channelID)
 			wg.Done()
-		}()
+		}(channelID)
 	}
 	b.mu.RUnlock()
 
