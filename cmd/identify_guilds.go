@@ -47,6 +47,9 @@ func main() {
 			continue
 		}
 		guildIDNumeric, err := strconv.ParseInt(guildID, 10, 64)
+		if err != nil {
+			panic(err)
+		}
 		owner, err := s.User(guild.OwnerID)
 		if err != nil {
 			fmt.Printf("error fetching user(%s): %v", guild.OwnerID, err)
