@@ -63,7 +63,6 @@ func (pq priorityQueue) Peek() *pqItem {
 
 type reapWorkItem struct {
 	ch   *ManagedChannel
-	msgs []string
 }
 
 type workerToken struct{}

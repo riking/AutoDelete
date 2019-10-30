@@ -57,7 +57,7 @@ func (b *Bot) HTTPOAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if err != nil {
 		fmt.Printf("%T %v", err, err)
-		http.Error(w, "bad token", 422)
+		http.Error(w, "bad token", http.StatusUnprocessableEntity)
 		return
 	}
 
