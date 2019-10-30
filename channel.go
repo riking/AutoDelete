@@ -134,7 +134,7 @@ func (c *ManagedChannel) Disable() {
 
 // Get a discord Channel. Results are cached in the library State.
 func (b *Bot) Channel(channelID string) (*discordgo.Channel, error) {
-	ch, err := b.s.State.Channel(channelID)
+	ch, _ := b.s.State.Channel(channelID)
 	if ch != nil {
 		return ch, nil
 	}

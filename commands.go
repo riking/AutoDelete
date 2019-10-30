@@ -186,6 +186,9 @@ func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {
 		}
 		guildID = channel.GuildID
 		apermissions, err := b.s.UserChannelPermissions(m.Author.ID, m.ChannelID)
+		if err != nil {
+			apermissions = 0
+		}
 		perm := discordgo.PermissionManageServer
 		if apermissions&perm != perm {
 			b.s.ChannelMessageSend(m.ChannelID, "Leaving the current server requires MANAGE_SERVER permission.")
