@@ -9,6 +9,8 @@ import (
 	rdebug "runtime/debug"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	autodelete "github.com/riking/AutoDelete"
 	"gopkg.in/yaml.v2"
 )
@@ -64,7 +66,7 @@ func main() {
 	}()
 	go func() {
 		privHttp.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-		// privHttp.Handle("/metrics", promhttp.Handler())
+		privHttp.Handle("/metrics", promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{}))
 		metricSvr := &http.Server{
 			Handler: &privHttp,
 			Addr:    fmt.Sprintf("%s:%d", *flagMetricsListen, *flagMetricsPort+*flagShardID),
