@@ -20,39 +20,46 @@ const backlogAutoReloadDeleteFraction = 0.25
 
 var (
 	mBacklogLoadLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    "backlog_load_seconds",
-		Help:    "Latency of LoadBacklog calls.",
-		Buckets: bucketsNetwork,
+		Namespace: nsAutodelete,
+		Name:      "backlog_load_seconds",
+		Help:      "Latency of LoadBacklog calls.",
+		Buckets:   bucketsNetwork,
 	})
 	mPinLoadLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    "pins_load_seconds",
-		Help:    "Latency of loadPins calls.",
-		Buckets: bucketsNetwork,
+		Namespace: nsAutodelete,
+		Name:      "pins_load_seconds",
+		Help:      "Latency of loadPins calls.",
+		Buckets:   bucketsNetwork,
 	})
 	mNextDeletionTimes = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    "next_deletion_time_seconds",
-		Help:    "Time until next message in channel is due to be deleted.",
-		Buckets: bucketsDeletionTimes,
+		Namespace: nsAutodelete,
+		Name:      "next_deletion_time_seconds",
+		Help:      "Time until next message in channel is due to be deleted.",
+		Buckets:   bucketsDeletionTimes,
 	})
 	mReapLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    "reap_seconds",
-		Help:    "Latency of message deletion (Reap) calls.",
-		Buckets: bucketsNetwork,
+		Namespace: nsAutodelete,
+		Name:      "reap_seconds",
+		Help:      "Latency of message deletion (Reap) calls.",
+		Buckets:   bucketsNetwork,
 	})
 	mDeletionChunks = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name: "message_reaps_chunksize",
-		Help: "Number of messages deleted per Reap call. Total count deleted is sum(this).",
+		Namespace: nsAutodelete,
+		Name:      "message_reaps_chunksize",
+		Help:      "Number of messages deleted per Reap call. Total count deleted is sum(this).",
 		Buckets: []float64{
 			1, 2, 3, 5, 8, 10, 20, 30, 50, 80, 100,
 		},
 	})
 	mReapErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "message_reap_errors_total",
-		Help: "Number of errors encountered when deleting messages",
+		Namespace: nsAutodelete,
+		Name:      "message_reap_errors_total",
+		Help:      "Number of errors encountered when deleting messages",
 	}, []string{"error_code"})
 	mSingleMessageReapErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "message_reap_single_errors_total",
-		Help: "Number of errors encountered when single-deleting messages",
+		Namespace: nsAutodelete,
+		Name:      "message_reap_single_errors_total",
+		Help:      "Number of errors encountered when single-deleting messages",
 	}, []string{"error_code"})
 )
 

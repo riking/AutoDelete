@@ -13,3 +13,5 @@ var (
 
 	bucketsNetwork = prometheus.DefBuckets
 )
+
+const nsAutodelete = "autodelete"
