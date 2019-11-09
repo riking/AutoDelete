@@ -23,13 +23,13 @@ var (
 		Namespace: nsAutodelete,
 		Name:      "backlog_load_seconds",
 		Help:      "Latency of LoadBacklog calls.",
-		Buckets:   bucketsLoadBacklog,
+		Buckets:   bucketsDiscordAPI,
 	})
 	mPinLoadLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: nsAutodelete,
 		Name:      "pins_load_seconds",
 		Help:      "Latency of loadPins calls.",
-		Buckets:   bucketsNetwork,
+		Buckets:   bucketsDiscordAPI,
 	})
 	mNextDeletionTimes = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: nsAutodelete,
@@ -39,22 +39,20 @@ var (
 	})
 	mNoNextDeletionTimeCount = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: nsAutodelete,
-		Name: "next_deletion_time_none_total",
-		Help: "Number of times that '10 days from now' is returned from GetNextDeletionTime",
+		Name:      "next_deletion_time_none_total",
+		Help:      "Number of times that '10 days from now' is returned from GetNextDeletionTime",
 	})
 	mReapLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: nsAutodelete,
 		Name:      "reap_seconds",
 		Help:      "Latency of message deletion (Reap) calls.",
-		Buckets:   bucketsNetwork,
+		Buckets:   bucketsDiscordAPI,
 	})
 	mDeletionChunks = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: nsAutodelete,
 		Name:      "message_reaps_chunksize",
 		Help:      "Number of messages deleted per Reap call. Total count deleted is sum(this).",
-		Buckets: []float64{
-			1, 2, 3, 5, 8, 10, 20, 30, 50, 80, 100,
-		},
+		Buckets:   bucketsMessageCounts,
 	})
 	mReapErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: nsAutodelete,
@@ -472,7 +470,7 @@ func (c *ManagedChannel) SetMaxMessages(max int) {
 func (c *ManagedChannel) GetNextDeletionTime() (deadline time.Time) {
 	defer func() {
 		x := time.Until(deadline)
-		if 863900 * time.Second <= x && x <= 864100*time.Second {
+		if 863900*time.Second <= x && x <= 864100*time.Second {
 			mNoNextDeletionTimeCount.Inc()
 		} else {
 			mNextDeletionTimes.Observe(float64(time.Until(deadline)) / float64(time.Second))
