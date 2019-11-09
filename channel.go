@@ -23,7 +23,7 @@ var (
 		Namespace: nsAutodelete,
 		Name:      "backlog_load_seconds",
 		Help:      "Latency of LoadBacklog calls.",
-		Buckets:   bucketsNetwork,
+		Buckets:   bucketsLoadBacklog,
 	})
 	mPinLoadLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: nsAutodelete,
@@ -207,9 +207,7 @@ func (b *Bot) Channel(channelID string) (*discordgo.Channel, error) {
 const useRatelimitWorkaround = true
 
 func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
-	timer := prometheus.NewTimer(mPinLoadLatency)
-	defer timer.ObserveDuration()
-
+	// timing note: should always be cached
 	disCh, err := c.bot.Channel(c.ChannelID)
 	if err != nil {
 		return nil, err
@@ -217,7 +215,12 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 
 	if disCh.LastPinTimestamp == "" {
 		return nil, nil
-	} else if useRatelimitWorkaround {
+	}
+
+	timer := prometheus.NewTimer(mPinLoadLatency)
+	defer timer.ObserveDuration()
+
+	if useRatelimitWorkaround {
 		fmt.Printf("[load] %s: loading pins\n", c)
 		// Inlined ChannelMessagesPinned with the ratelimit bucket replaced
 		body, err := c.bot.s.RequestWithBucketID("GET", discordgo.EndpointChannelMessagesPins(c.ChannelID), nil, "/custom/pinsGlobal")
