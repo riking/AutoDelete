@@ -56,6 +56,16 @@ var (
 	}, []string{"error_code"})
 )
 
+func init() {
+	prometheus.MustRegister(mBacklogLoadLatency)
+	prometheus.MustRegister(mPinLoadLatency)
+	prometheus.MustRegister(mNextDeletionTimes)
+	prometheus.MustRegister(mReapLatency)
+	prometheus.MustRegister(mDeletionChunks)
+	prometheus.MustRegister(mReapErrors)
+	prometheus.MustRegister(mSingleMessageReapErrors)
+}
+
 type smallMessage struct {
 	MessageID string
 	PostedAt  time.Time
