@@ -3,6 +3,7 @@ package autodelete
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -189,6 +190,9 @@ func (b *Bot) Channel(channelID string) (*discordgo.Channel, error) {
 const useRatelimitWorkaround = true
 
 func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
+	timer := prometheus.NewTimer(mPinLoadLatency)
+	defer timer.ObserveDuration()
+
 	disCh, err := c.bot.Channel(c.ChannelID)
 	if err != nil {
 		return nil, err
@@ -219,6 +223,9 @@ func (c *ManagedChannel) LoadBacklogNow() {
 }
 
 func (c *ManagedChannel) LoadBacklog() error {
+	timer := prometheus.NewTimer(mBacklogLoadLatency)
+	defer timer.ObserveDuration()
+
 	// prevent reentrancy, even during web requests
 	c.backlogMu.Lock()
 	defer c.backlogMu.Unlock()
@@ -436,7 +443,10 @@ func (c *ManagedChannel) SetMaxMessages(max int) {
 	c.MaxMessages = max
 }
 
-func (c *ManagedChannel) GetNextDeletionTime() time.Time {
+func (c *ManagedChannel) GetNextDeletionTime() (deadline time.Time) {
+	defer func() {
+		mNextDeletionTimes.Observe(float64(time.Until(deadline)) / float64(time.Second))
+	}()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -471,17 +481,25 @@ func (c *ManagedChannel) Reap(msgs []string) (int, error) {
 	var err error
 	count := 0
 
+	timer := prometheus.NewTimer(mReapLatency)
+	defer timer.ObserveDuration()
+	mDeletionChunks.Observe(float64(len(msgs)))
+
 nobulk:
 	switch {
 	case true:
 		for len(msgs) > 50 {
 			err := c.bot.s.ChannelMessagesBulkDelete(c.ChannelID, msgs[:50])
 			if rErr, ok := err.(*discordgo.RESTError); ok {
-				if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
-					break nobulk
+				if rErr.Message != nil {
+					mReapErrors.With(prometheus.Labels{"error_code": strconv.Itoa(rErr.Message.Code)}).Inc()
+					if rErr.Message.Code == errCodeBulkDeleteOld {
+						break nobulk
+					}
 				}
 				return count, err
 			} else if err != nil {
+				mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
 				return count, err
 			}
 			msgs = msgs[50:]
@@ -490,11 +508,15 @@ nobulk:
 		err = c.bot.s.ChannelMessagesBulkDelete(c.ChannelID, msgs)
 		count += len(msgs)
 		if rErr, ok := err.(*discordgo.RESTError); ok {
-			if rErr.Message != nil && rErr.Message.Code == errCodeBulkDeleteOld {
-				break nobulk
+			if rErr.Message != nil {
+				mReapErrors.With(prometheus.Labels{"error_code": strconv.Itoa(rErr.Message.Code)}).Inc()
+				if rErr.Message.Code == errCodeBulkDeleteOld {
+					break nobulk
+				}
 			}
 			return count, err
 		} else if err != nil {
+			mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
 			return count, err
 		}
 		return count, nil
@@ -505,7 +527,11 @@ nobulk:
 	go func() {
 		for _, msg := range msgs {
 			err = c.bot.s.ChannelMessageDelete(c.ChannelID, msg)
-			if err != nil {
+			if rErr, ok := err.(*discordgo.RESTError); ok && rErr.Message != nil {
+				mSingleMessageReapErrors.With(prometheus.Labels{"error_code": strconv.Itoa(rErr.Message.Code)}).Inc()
+				fmt.Printf("[ERR ] %s: single-message delete: %v (on %v)\n", c, err, msg)
+			} else if err != nil {
+				mSingleMessageReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
 				fmt.Printf("[ERR ] %s: single-message delete: %v (on %v)\n", c, err, msg)
 			}
 		}
