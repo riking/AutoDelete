@@ -37,6 +37,11 @@ var (
 		Help:      "Time until next message in channel is due to be deleted.",
 		Buckets:   bucketsDeletionTimes,
 	})
+	mNoNextDeletionTimeCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: nsAutodelete,
+		Name: "next_deletion_time_none_total",
+		Help: "Number of times that '10 days from now' is returned from GetNextDeletionTime",
+	})
 	mReapLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: nsAutodelete,
 		Name:      "reap_seconds",
@@ -67,6 +72,7 @@ func init() {
 	prometheus.MustRegister(mBacklogLoadLatency)
 	prometheus.MustRegister(mPinLoadLatency)
 	prometheus.MustRegister(mNextDeletionTimes)
+	prometheus.MustRegister(mNoNextDeletionTimeCount)
 	prometheus.MustRegister(mReapLatency)
 	prometheus.MustRegister(mDeletionChunks)
 	prometheus.MustRegister(mReapErrors)
@@ -465,7 +471,12 @@ func (c *ManagedChannel) SetMaxMessages(max int) {
 
 func (c *ManagedChannel) GetNextDeletionTime() (deadline time.Time) {
 	defer func() {
-		mNextDeletionTimes.Observe(float64(time.Until(deadline)) / float64(time.Second))
+		x := time.Until(deadline)
+		if 863900 * time.Second <= x && x <= 864100*time.Second {
+			mNoNextDeletionTimeCount.Inc()
+		} else {
+			mNextDeletionTimes.Observe(float64(time.Until(deadline)) / float64(time.Second))
+		}
 	}()
 	c.mu.Lock()
 	defer c.mu.Unlock()
