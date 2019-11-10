@@ -339,17 +339,6 @@ func (c *ManagedChannel) LoadBacklog() error {
 	return nil
 }
 
-func (b *Bot) LoadAllBacklogs() {
-	b.mu.RLock()
-	for _, c := range b.channels {
-		if c == nil {
-			continue
-		}
-		b.QueueLoadBacklog(c, false /* didFail */)
-	}
-	b.mu.RUnlock()
-}
-
 func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
 	<-c.isStarted
 	needReap := false

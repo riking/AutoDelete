@@ -258,6 +258,34 @@ func (b *Bot) CancelReap(c *ManagedChannel) {
 	b.reaper.Update(c, zeroTime)
 }
 
+// Queue up work to reload the backlog of every channel.
+//
+// We do this by straight-up replacing the queue with a brand new heap, because
+// there's no point in preserving the old entries if we're just doing
+// everything over again.
+func (b *Bot) LoadAllBacklogs() {
+	now := time.Now()
+
+	b.mu.RLock()
+	newQueue := make(priorityQueue, len(b.channels))
+	for _, c := range b.channels {
+		if c == nil {
+			continue
+		}
+		newQueue = append(newQueue, &pqItem{ch: c, nextReap: now, index: len(newQueue)})
+		now = now.Add(time.Nanosecond)
+	}
+	b.mu.RUnlock()
+
+	heap.Init(&newQueue)
+
+	b.loadRetries.cond.L.Lock()
+	b.loadRetries.items = &newQueue
+	b.loadRetries.cond.Signal()
+	b.loadRetries.cond.L.Unlock()
+}
+
+
 func (b *Bot) QueueLoadBacklog(c *ManagedChannel, didFail bool) {
 	c.mu.Lock()
 	loadDelay := c.loadFailures
