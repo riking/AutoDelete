@@ -472,6 +472,8 @@ func (c *ManagedChannel) GetNextDeletionTime() (deadline time.Time) {
 		x := time.Until(deadline)
 		if 863900*time.Second <= x && x <= 864100*time.Second {
 			mNoNextDeletionTimeCount.Inc()
+		} else if x <= 0 {
+			mNextDeletionTimes.Observe(0)
 		} else {
 			mNextDeletionTimes.Observe(float64(time.Until(deadline)) / float64(time.Second))
 		}

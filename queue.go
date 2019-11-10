@@ -7,11 +7,68 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
 	schedulerTimeout = 250 * time.Millisecond
 	workerTimeout    = 5 * time.Second
+
+	labelQueue = "queue"
+	queueReap  = "reap"
+	queueLoad  = "load"
+)
+
+var (
+	mReapqLen = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: nsAutodelete,
+		Name:      "reapq_total",
+		Help:      "number of items in reapq",
+	}, []string{"queue"})
+	mReapqWorkerCount = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: nsAutodelete,
+		Name:      "reapq_worker_total",
+		Help:      "number of workers in reapq",
+	}, []string{"queue"})
+	mReapqInFlight = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: nsAutodelete,
+		Name:      "reapq_inflight_total",
+		Help:      "number of work items currently being processed",
+	}, []string{"queue"})
+	mReapqWaitDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: nsAutodelete,
+		Name:      "reapq_wait_seconds",
+		Help:      "seconds slept between queue items",
+		Buckets:   bucketsDeletionTimes,
+	}, []string{"queue"})
+	mReapqUpdate = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: nsAutodelete,
+		Name:      "reapq_updates",
+		Help:      "number of times an item is inserted or updated in the queue",
+	}, []string{"queue"})
+	mReapqWorkerStart = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: nsAutodelete,
+		Name:      "reapq_worker_start_total",
+		Help:      "number of times a new worker is started",
+	}, []string{"queue"})
+	mReapqWorkerStop = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: nsAutodelete,
+		Name:      "reapq_worker_stop_total",
+		Help:      "number of times a worker is halted",
+	}, []string{"queue"})
+	mReapqDropChannel = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: nsAutodelete,
+		Name:      "reapq_drop_channel_total",
+		Help:      "times that a channel picked up was marked as disabled",
+	}, []string{"queue"})
+
+	reapqMetricsC = []*prometheus.CounterVec{
+		mReapqUpdate,
+		mReapqWorkerStart,
+		mReapqWorkerStop,
+		mReapqDropChannel,
+	}
 )
 
 // An Item is something we manage in a priority queue.
@@ -62,7 +119,7 @@ func (pq priorityQueue) Peek() *pqItem {
 }
 
 type reapWorkItem struct {
-	ch   *ManagedChannel
+	ch *ManagedChannel
 }
 
 type workerToken struct{}
@@ -71,6 +128,7 @@ type reapQueue struct {
 	items  *priorityQueue
 	cond   *sync.Cond
 	timer  *time.Timer
+	label  string
 	workCh chan reapWorkItem
 
 	// Send when a worker starts, receive when a worker quits
@@ -80,12 +138,13 @@ type reapQueue struct {
 	curWork map[*ManagedChannel]struct{}
 }
 
-func newReapQueue(maxWorkerCount int) *reapQueue {
+func newReapQueue(maxWorkerCount int, label string) *reapQueue {
 	var locker sync.Mutex
 	q := &reapQueue{
 		items:     new(priorityQueue),
 		cond:      sync.NewCond(&locker),
 		timer:     time.NewTimer(0),
+		label:     label,
 		workCh:    make(chan reapWorkItem),
 		controlCh: make(chan workerToken, maxWorkerCount),
 		curWork:   make(map[*ManagedChannel]struct{}),
@@ -101,8 +160,46 @@ func newReapQueue(maxWorkerCount int) *reapQueue {
 	return q
 }
 
+type reapqCollector struct {
+	qs []*reapQueue
+}
+
+func (c reapqCollector) Describe(ch chan<- *prometheus.Desc) {
+	for _, v := range reapqMetricsC {
+		v.Describe(ch)
+	}
+
+	mReapqLen.Describe(ch)
+	mReapqWorkerCount.Describe(ch)
+	mReapqInFlight.Describe(ch)
+	mReapqWaitDuration.Describe(ch)
+}
+
+func (c reapqCollector) Collect(ch chan<- prometheus.Metric) {
+	for _, q := range c.qs {
+		q.cond.L.Lock()
+		mReapqLen.WithLabelValues(q.label).Set(float64(len(*q.items)))
+		mReapqWorkerCount.WithLabelValues(q.label).Set(float64(len(q.controlCh)))
+		q.cond.L.Unlock()
+		q.curMu.Lock()
+		mReapqInFlight.WithLabelValues(q.label).Set(float64(len(q.curWork)))
+		q.curMu.Unlock()
+	}
+
+	for _, v := range reapqMetricsC {
+		v.Collect(ch)
+	}
+
+	mReapqLen.Collect(ch)
+	mReapqWorkerCount.Collect(ch)
+	mReapqInFlight.Collect(ch)
+	mReapqWaitDuration.Collect(ch)
+}
+
 // Update adds or inserts the expiry time for the given item in the queue.
 func (q *reapQueue) Update(ch *ManagedChannel, t time.Time) {
+	mReapqUpdate.WithLabelValues(q.label).Inc()
+
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
@@ -138,6 +235,7 @@ start:
 	if it.nextReap.After(now) {
 		waitTime := it.nextReap.Sub(now)
 		fmt.Println("[reap] sleeping for ", waitTime-(waitTime%time.Second))
+		mReapqWaitDuration.WithLabelValues(q.label).Observe(float64(waitTime) / float64(time.Second))
 		q.timer.Reset(waitTime + 2*time.Millisecond)
 		q.cond.Wait()
 		goto start
@@ -216,6 +314,7 @@ func sendWorkItem(q *reapQueue, workerFunc func(*reapQueue, bool), timer *time.T
 		select {
 		case q.controlCh <- workerToken{}:
 			fmt.Printf("[reap] %p: starting new worker\n", q)
+			mReapqWorkerStart.WithLabelValues(q.label).Inc()
 			go workerFunc(q, true)
 			q.workCh <- work
 			return
@@ -232,6 +331,7 @@ func (b *Bot) loadWorker(q *reapQueue, mayTimeout bool) {
 		defer func() {
 			<-q.controlCh // remove a worker token
 			fmt.Printf("[reap] %p: worker exiting\n", q)
+			mReapqWorkerStop.WithLabelValues(q.label).Inc()
 		}()
 	}
 
@@ -271,6 +371,7 @@ func (b *Bot) reapWorker(q *reapQueue, mayTimeout bool) {
 		ch := work.ch
 		msgs, shouldQueueBacklog, isDisabled := ch.collectMessagesToDelete()
 		if isDisabled {
+			mReapqDropChannel.WithLabelValues(q.label).Inc()
 			continue // drop ch
 		}
 

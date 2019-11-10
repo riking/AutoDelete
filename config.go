@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Bot struct {
@@ -32,9 +33,10 @@ func New(c Config) *Bot {
 		Config:      c,
 		storage:     &DiskStorage{},
 		channels:    make(map[string]*ManagedChannel),
-		reaper:      newReapQueue(4),
-		loadRetries: newReapQueue(100),
+		reaper:      newReapQueue(4, queueReap),
+		loadRetries: newReapQueue(100, queueLoad),
 	}
+	prometheus.MustRegister(reapqCollector{[]*reapQueue{b.reaper, b.loadRetries}})
 	go reapScheduler(b.reaper, b.reapWorker)
 	go reapScheduler(b.loadRetries, b.loadWorker)
 	return b
