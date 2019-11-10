@@ -20,11 +20,11 @@ const emojiBusy = `🔄`
 const emojiDone = `✅`
 
 func (b *Bot) GetMsgChGuild(m *discordgo.Message) (*discordgo.Channel, *discordgo.Guild) {
-	ch, err := b.s.Channel(m.ChannelID)
+	ch, err := b.Channel(m.ChannelID)
 	if err != nil {
 		return nil, nil
 	}
-	guild, err := b.s.Guild(ch.GuildID)
+	guild, err := b.s.State.Guild(ch.GuildID)
 	if err != nil {
 		return nil, nil
 	}
@@ -60,7 +60,7 @@ func CommandAdminSay(b *Bot, m *discordgo.Message, rest []string) {
 		return
 	}
 
-	ch, err := b.s.Channel(channelID)
+	ch, err := b.Channel(channelID)
 	if err != nil {
 		b.s.ChannelMessageSend(m.ChannelID, "channel does not exist")
 		return
@@ -179,7 +179,7 @@ func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {
 	var guildID string
 
 	if len(rest) == 0 {
-		channel, err := b.s.Channel(m.ChannelID)
+		channel, err := b.Channel(m.ChannelID)
 		if err != nil {
 			fmt.Println("[cmdE] channel does not exist", m.ChannelID)
 			return
