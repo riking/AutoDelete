@@ -220,45 +220,64 @@ func (b *Bot) LoadChannelConfigs() error {
 	if err != nil {
 		return err
 	}
+
+	chanCh := make(chan string)
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for chID := range chanCh {
+				b.initialLoadChannel(chID)
+			}
+		}()
+	}
+
 	for _, chID := range channels {
-		var errHandled = false
+		chanCh <- chID
+	}
+	close(chanCh)
+	wg.Wait()
+	return nil
+}
 
-		ch, err := b.Channel(chID)
-		if err != nil {
-			errHandled = b.handleCriticalPermissionsErrors(chID, err)
-			if errHandled {
-				continue
-			}
-			fmt.Printf("Error loading configuration for channel %s: could not check guild ID: %v\n", chID, err)
-			continue
-		}
-		if !b.IsInShard(ch.GuildID) {
-			continue
-		}
-		err = b.loadChannel(chID)
+func (b *Bot) initialLoadChannel(chID string) {
+	var errHandled = false
 
+	ch, err := b.Channel(chID)
+	if err != nil {
 		errHandled = b.handleCriticalPermissionsErrors(chID, err)
+		if errHandled {
+			return
+		}
+		fmt.Printf("Error loading configuration for channel %s: could not check guild ID: %v\n", chID, err)
+		return
+	}
+	if !b.IsInShard(ch.GuildID) {
+		return
+	}
+	err = b.loadChannel(chID)
 
-		if os.IsNotExist(err) {
-			fmt.Printf("Error loading configuration for %s: configuration file does not exist\n", chID)
-			errHandled = true
-		}
-		if err != nil && !errHandled {
-			channelObj, _ := b.Channel(chID)
-			if channelObj != nil {
-				guildObj, _ := b.s.State.Guild(channelObj.GuildID)
-				if guildObj != nil {
-					fmt.Printf("Error loading configuration from #%s (%s) (server %s (%s)): %v\n", channelObj.Name, chID, guildObj.Name, channelObj.GuildID, err)
-					errHandled = true
-				}
+	errHandled = b.handleCriticalPermissionsErrors(chID, err)
+
+	if os.IsNotExist(err) {
+		fmt.Printf("Error loading configuration for %s: configuration file does not exist\n", chID)
+		errHandled = true
+	}
+	if err != nil && !errHandled {
+		channelObj, _ := b.Channel(chID)
+		if channelObj != nil {
+			guildObj, _ := b.s.State.Guild(channelObj.GuildID)
+			if guildObj != nil {
+				fmt.Printf("Error loading configuration from #%s (%s) (server %s (%s)): %v\n", channelObj.Name, chID, guildObj.Name, channelObj.GuildID, err)
+				errHandled = true
 			}
-		}
-		if err != nil && !errHandled {
-			fmt.Printf("Error loading configuration for %s: %v\n", chID, err)
-			errHandled = true
 		}
 	}
-	return nil
+	if err != nil && !errHandled {
+		fmt.Printf("Error loading configuration for %s: %v\n", chID, err)
+		errHandled = true
+	}
 }
 
 func (b *Bot) loadChannel(channelID string) error {
@@ -297,7 +316,7 @@ func (b *Bot) loadChannel(channelID string) error {
 	b.mu.Unlock()
 
 	if ch.LastPinTimestamp != "" {
-		b.QueueLoadBacklog(mCh, true)  // didFail = true
+		b.QueueLoadBacklog(mCh, true) // didFail = true
 	} else {
 		b.QueueLoadBacklog(mCh, false)
 	}
