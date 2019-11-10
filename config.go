@@ -173,9 +173,9 @@ func (b *Bot) handleCriticalPermissionsErrors(channelID string, srcErr error) bo
 		case discordgo.ErrCodeMissingPermissions:
 			shouldRemoveChannel = true
 			shouldNotifyChannel = true
-			channelObj, _ := b.s.Channel(channelID)
+			channelObj, _ := b.Channel(channelID)
 			if channelObj != nil {
-				guildObj, _ := b.s.Guild(channelObj.GuildID)
+				guildObj, _ := b.s.State.Guild(channelObj.GuildID)
 				if guildObj != nil {
 					logMsg = fmt.Sprintf("AutoDelete disabled from channel #%s (%s) (server %s (%s)) due to missing critical permissions", channelObj.Name, channelID, guildObj.Name, channelObj.GuildID)
 				} else {
@@ -223,7 +223,7 @@ func (b *Bot) LoadChannelConfigs() error {
 	for _, chID := range channels {
 		var errHandled = false
 
-		ch, err := b.s.Channel(chID)
+		ch, err := b.Channel(chID)
 		if err != nil {
 			errHandled = b.handleCriticalPermissionsErrors(chID, err)
 			if errHandled {
@@ -244,9 +244,9 @@ func (b *Bot) LoadChannelConfigs() error {
 			errHandled = true
 		}
 		if err != nil && !errHandled {
-			channelObj, _ := b.s.Channel(chID)
+			channelObj, _ := b.Channel(chID)
 			if channelObj != nil {
-				guildObj, _ := b.s.Guild(channelObj.GuildID)
+				guildObj, _ := b.s.State.Guild(channelObj.GuildID)
 				if guildObj != nil {
 					fmt.Printf("Error loading configuration from #%s (%s) (server %s (%s)): %v\n", channelObj.Name, chID, guildObj.Name, channelObj.GuildID, err)
 					errHandled = true
@@ -262,7 +262,8 @@ func (b *Bot) LoadChannelConfigs() error {
 }
 
 func (b *Bot) loadChannel(channelID string) error {
-	_, err := b.s.Channel(channelID)
+	// ensure channel exists
+	ch, err := b.Channel(channelID)
 	if err != nil {
 		return err
 	}
@@ -295,6 +296,10 @@ func (b *Bot) loadChannel(channelID string) error {
 	b.channels[channelID] = mCh
 	b.mu.Unlock()
 
-	b.QueueLoadBacklog(mCh, false)
+	if ch.LastPinTimestamp != "" {
+		b.QueueLoadBacklog(mCh, true)  // didFail = true
+	} else {
+		b.QueueLoadBacklog(mCh, false)
+	}
 	return nil
 }
