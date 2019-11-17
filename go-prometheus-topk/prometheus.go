@@ -87,6 +87,10 @@ type TopKOpts struct {
 	// Buckets provides the number of metric streams that this metric is
 	// expected to keep an accurate count for (the "K" in top-K).
 	Buckets uint64
+
+	// To help preserve privacy, any values under the ReportingThreshold
+	// are not collected.
+	ReportingThreshold float64
 }
 
 type topkRoot struct {
@@ -98,6 +102,7 @@ type topkRoot struct {
 	errDesc   *prometheus.Desc
 
 	variableLabels []string
+	reportThreshold float64
 }
 
 type curriedLabelValue struct {
@@ -162,6 +167,10 @@ func (r *topkCurry) Collect(ch chan<- prometheus.Metric) {
 	zeroSent := false
 
 	for _, e := range elts {
+		if e.Count < r.root.reportThreshold {
+			// Do not collect metrics under the reporting threshold
+			continue
+		}
 		split := strings.Split(e.Key, labelParseSplit)
 		if len(split) != len(r.root.variableLabels)+1 {
 			panic("bad label-string value in topk")
