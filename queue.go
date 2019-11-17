@@ -267,7 +267,7 @@ func (b *Bot) LoadAllBacklogs() {
 	now := time.Now()
 
 	b.mu.RLock()
-	newQueue := make(priorityQueue, len(b.channels))
+	newQueue := make(priorityQueue, 0, len(b.channels))
 	for _, c := range b.channels {
 		if c == nil {
 			continue
