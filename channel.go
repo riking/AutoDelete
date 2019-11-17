@@ -239,6 +239,8 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 	timer := prometheus.NewTimer(mPinLoadLatency)
 	defer timer.ObserveDuration()
 
+	// https://github.com/bwmarrin/discordgo/issues/712
+	// This is, in fact, not a hack - it is the actual ratelimit bucket.
 	if useRatelimitWorkaround {
 		fmt.Printf("[load] %s: loading pins\n", c)
 		// Inlined ChannelMessagesPinned with the ratelimit bucket replaced
