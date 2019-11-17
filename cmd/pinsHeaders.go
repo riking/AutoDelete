@@ -20,6 +20,7 @@ func (l *loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	resp, err := l.RoundTripper.RoundTrip(req)
 	if resp != nil {
 		req.Write(os.Stderr)
+		fmt.Fprintf(os.Stderr, "%s %s", resp.Proto, resp.Status)
 		resp.Header.Write(os.Stderr)
 	}
 	return resp, err
@@ -29,6 +30,9 @@ func main() {
 	var conf autodelete.Config
 
 	flag.Parse()
+	if flag.NArg() == 0 {
+		fmt.Println("usage: pinsHeaders channelID")
+	}
 
 	confBytes, err := ioutil.ReadFile("config.yml")
 	if err != nil {
@@ -56,5 +60,5 @@ func main() {
 	}
 	s.Client = client
 
-	s.ChannelMessagesPinned("566749851585609758")
+	s.ChannelMessagesPinned(flag.Arg(0))
 }
