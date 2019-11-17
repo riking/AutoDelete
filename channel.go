@@ -3,6 +3,7 @@ package autodelete
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -295,11 +296,25 @@ func (c *ManagedChannel) LoadBacklog() error {
 	}()
 
 	// Load messages & pins
-	msgs, err := c.bot.s.ChannelMessages(c.ChannelID, 100, "", "", "")
+	msgsA, err := c.bot.s.ChannelMessages(c.ChannelID, 100, "", "", "")
 	if err != nil {
 		fmt.Println("[ERR ] could not load backlog for", c, err)
 		return err
 	}
+	msgs := msgsA
+	if len(msgsA) == 100 && c.IsDonor {
+		fmt.Println("[TEST] Loading extended backlog for", c)
+		before := msgs[len(msgs)-1].ID
+
+		msgsA, err := c.bot.s.ChannelMessages(c.ChannelID, 100, before, "", "")
+		if err != nil {
+			fmt.Println("[ERR ] could not load backlog for", c, err)
+			return err
+		}
+
+		msgs = append(msgs, msgsA...)
+	}
+
 	pins, pinsErr := c.loadPins()
 	if pinsErr != nil {
 		fmt.Println("[ERR ] could not load pins for", c, pinsErr)
@@ -323,8 +338,28 @@ func (c *ManagedChannel) LoadBacklog() error {
 		c.keepLookup[v] = true
 	}
 
-	c.liveMessages = make([]smallMessage, 0, len(msgs))
-	// Iterate backwards so we swap the order
+	c.mergeBacklog(msgs)
+
+	// mark as ready for AddMessage()
+	inited := "reloaded"
+	select {
+	case <-c.isStarted:
+	default:
+		close(c.isStarted)
+		inited = "initialized"
+	}
+	fmt.Printf("[load] %s %s, %d msgs %d keeps\n", c.String(), inited, len(c.liveMessages), len(c.keepLookup))
+	return nil
+}
+
+func (c *ManagedChannel) mergeBacklog(msgs []*discordgo.Message) {
+	var (
+		oldLiveMessages = c.liveMessages
+		newLiveMessages = make([]smallMessage, 0, len(msgs))
+		iOld            int
+	)
+	sort.Sort(liveMessagesSort(oldLiveMessages))
+	// Iterate backwards so we put oldest first
 	for i := len(msgs); i > 0; i-- {
 		v := msgs[i-1]
 
@@ -340,22 +375,30 @@ func (c *ManagedChannel) LoadBacklog() error {
 		if ts.IsZero() {
 			continue
 		}
-		c.liveMessages = append(c.liveMessages, smallMessage{
+		// equal messages will break this loop
+		for iOld < len(oldLiveMessages) && ts.After(oldLiveMessages[iOld].PostedAt) {
+			newLiveMessages = append(newLiveMessages, oldLiveMessages[iOld])
+			iOld++
+		}
+		// handle equal messages
+		if iOld < len(oldLiveMessages) && oldLiveMessages[iOld].MessageID == v.ID {
+			iOld++
+		}
+		newLiveMessages = append(newLiveMessages, smallMessage{
 			MessageID: v.ID,
 			PostedAt:  ts,
 		})
 	}
+	sort.Sort(liveMessagesSort(newLiveMessages))
+	c.liveMessages = newLiveMessages
+}
 
-	// mark as ready for AddMessage()
-	inited := "reloaded"
-	select {
-	case <-c.isStarted:
-	default:
-		close(c.isStarted)
-		inited = "initialized"
-	}
-	fmt.Printf("[load] %s %s, %d msgs %d keeps\n", c.String(), inited, len(c.liveMessages), len(c.keepLookup))
-	return nil
+type liveMessagesSort []smallMessage
+
+func (s liveMessagesSort) Len() int      { return len(s) }
+func (s liveMessagesSort) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s liveMessagesSort) Less(i, j int) bool {
+	return s[i].PostedAt.Before(s[j].PostedAt)
 }
 
 func (c *ManagedChannel) AddMessage(m *discordgo.Message) {
