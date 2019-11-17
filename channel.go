@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/riking/AutoDelete/go-prometheus-topk"
 )
 
 const minTimeBetweenDeletion = time.Second * 5
@@ -64,6 +65,18 @@ var (
 		Name:      "message_reap_single_errors_total",
 		Help:      "Number of errors encountered when single-deleting messages",
 	}, []string{"error_code"})
+	mTopDeletionChannels = topk.NewTopK(topk.TopKOpts{
+		Namespace: nsAutodelete,
+		Name: "message_reaps_by_channel",
+		Help: "Top-K of channels with the most messages deleted",
+		Buckets: 100,
+	}, []string{"channel_id"})
+	mTopDeletionGuilds = topk.NewTopK(topk.TopKOpts{
+		Namespace: nsAutodelete,
+		Name: "message_reaps_by_guild",
+		Help: "Top-K of guilds with the most messages deleted",
+		Buckets: 100,
+	}, []string{"guild_id"})
 )
 
 func init() {
@@ -75,6 +88,8 @@ func init() {
 	prometheus.MustRegister(mDeletionChunks)
 	prometheus.MustRegister(mReapErrors)
 	prometheus.MustRegister(mSingleMessageReapErrors)
+	prometheus.MustRegister(mTopDeletionChannels)
+	prometheus.MustRegister(mTopDeletionGuilds)
 }
 
 type smallMessage struct {
@@ -504,6 +519,8 @@ func (c *ManagedChannel) Reap(msgs []string) (int, error) {
 	timer := prometheus.NewTimer(mReapLatency)
 	defer timer.ObserveDuration()
 	mDeletionChunks.Observe(float64(len(msgs)))
+	mTopDeletionChannels.WithLabelValues(c.ChannelID).Observe(float64(len(msgs)))
+	mTopDeletionGuilds.WithLabelValues(c.GuildID).Observe(float64(len(msgs)))
 
 nobulk:
 	switch {
