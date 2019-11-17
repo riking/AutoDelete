@@ -303,10 +303,10 @@ func (c *ManagedChannel) LoadBacklog() error {
 	}
 	msgs := msgsA
 	for c.IsDonor && len(msgsA) == 100 && len(msgs) < 500 {
-		fmt.Println("[TEST] Loading extended backlog for", c)
+		fmt.Println("[TEST] Loading extended backlog for", c, len(msgsA))
 		before := msgs[len(msgs)-1].ID
 
-		msgsA, err := c.bot.s.ChannelMessages(c.ChannelID, 100, before, "", "")
+		msgsA, err = c.bot.s.ChannelMessages(c.ChannelID, 100, before, "", "")
 		if err != nil {
 			fmt.Println("[ERR ] could not load backlog for", c, err)
 			return err
@@ -315,7 +315,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 		msgs = append(msgs, msgsA...)
 	}
 	if c.IsDonor && len(msgs) >= 500 {
-		c.bot.ChannelMessageSend(c.ChannelID, fmt.Sprintf("[Notice] The number of messages in this channel is over 1000. Messages may not be reliably deleted."))
+		c.bot.s.ChannelMessageSend(c.ChannelID, fmt.Sprintf("[Notice] The number of messages in this channel is over 500. Messages may not be reliably deleted."))
 	}
 
 	pins, pinsErr := c.loadPins()
