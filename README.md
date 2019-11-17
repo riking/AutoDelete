@@ -1,6 +1,6 @@
 # AutoDelete
 
-### _cleaning up over 175 channels since 2017_
+### _cleaning up over 8000 channels since 2017_
 
 _warning: the bot is currently mildly overloaded. I don't have the time to fix it right now; I can get started maybe if the [Patreon](https://www.patreon.com/riking) gets higher._
 
