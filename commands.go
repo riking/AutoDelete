@@ -75,12 +75,50 @@ func CommandAdminSay(b *Bot, m *discordgo.Message, rest []string) {
 	})
 }
 
+func CommandSetDonor(b *Bot, m *discordgo.Message, rest []string) {
+	var channelID string
+	if len(rest) == 0 {
+		channelID = m.ChannelID
+	} else {
+		channelID = rest[0]
+	}
+
+	if m.Author.ID != b.Config.AdminUser {
+		b.s.ChannelMessageSend(m.ChannelID, "patron checking not yet implemented")
+		return
+	}
+
+	b.mu.RLock()
+	mCh, ok := b.channels[channelID]
+	b.mu.RUnlock()
+
+	if !ok {
+		b.s.ChannelMessageSend(m.ChannelID, "not currently deleting in that channel")
+		return
+	}
+
+	mCh.mu.Lock()
+	mCh.IsDonor = true
+	mCh.mu.Unlock()
+
+	b.saveChannelConfig(mCh.Export())
+
+	b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("set %v as a donor channel", channelID))
+	b.QueueLoadBacklog(mCh, false)
+}
+
 func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 	var duration time.Duration
 	var count int
 	var anySet bool
 
 	const perm = discordgo.PermissionManageMessages
+
+	channel, err := b.Channel(m.ChannelID)
+	if err != nil {
+		fmt.Println("[ERR ] Could not load channel of mention")
+		return
+	}
 
 	apermissions, err := b.s.UserChannelPermissions(m.Author.ID, m.ChannelID)
 	if err != nil {
@@ -111,9 +149,6 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		return
 	}
 
-	_, err = b.s.ChannelMessagesPinned(m.ChannelID)
-	hasPins := err == nil
-
 	var confMessage *discordgo.Message
 
 	if duration != 0 && count != 0 {
@@ -138,13 +173,24 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		fmt.Println("[Warn]", "could not react to config reply", emojiErr)
 	}
 
-	newManagedChannel := ManagedChannelMarshal{
+	b.mu.RLock()
+	mCh, ok := b.channels[m.ChannelID]
+	b.mu.RUnlock()
+
+	var newManagedChannel = ManagedChannelMarshal{
 		ID:           m.ChannelID,
+		GuildID:      channel.GuildID,
 		KeepMessages: []string{confMessage.ID},
 		LiveTime:     duration,
 		MaxMessages:  count,
-		HasPins:      hasPins,
+		HasPins:      channel.LastPinTimestamp != "",
 		IsDonor:      false, // TODO
+	}
+
+	if ok {
+		newManagedChannel = mCh.Export()
+		newManagedChannel.LiveTime = duration
+		newManagedChannel.MaxMessages = count
 	}
 
 	err = b.setChannelConfig(newManagedChannel)
@@ -165,12 +211,12 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		if mCh != nil {
 			select {
 			case <-mCh.isStarted:
-			case <-time.After(1*time.Hour):
+			case <-time.After(1 * time.Hour):
 			}
 		}
 		b.s.MessageReactionRemove(channelID, msgID, emojiBusy, "@me")
 		emojiErr = b.s.MessageReactionAdd(channelID, msgID, emojiDone)
-		time.Sleep(30*time.Second)
+		time.Sleep(30 * time.Second)
 		b.s.MessageReactionRemove(channelID, msgID, emojiDone, "@me")
 	}()
 }
@@ -223,4 +269,5 @@ var commands = map[string]func(b *Bot, m *discordgo.Message, rest []string){
 	"adminmsg":  CommandAdminHelp,
 	"support":   CommandAdminHelp,
 	"adminsay":  CommandAdminSay,
+	"setdonor":  CommandSetDonor,
 }
