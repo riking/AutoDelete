@@ -159,6 +159,8 @@ func (r *topkCurry) Collect(ch chan<- prometheus.Metric) {
 	elts := r.root.stream.Keys()
 	r.root.streamMtx.Unlock()
 
+	zeroSent := false
+
 	for _, e := range elts {
 		split := strings.Split(e.Key, labelParseSplit)
 		if len(split) != len(r.root.variableLabels)+1 {
@@ -166,7 +168,12 @@ func (r *topkCurry) Collect(ch chan<- prometheus.Metric) {
 		}
 		lvs := split[:len(r.root.variableLabels)]
 		ch <- prometheus.MustNewConstMetric(r.root.countDesc, prometheus.CounterValue, e.Count, lvs...)
-		ch <- prometheus.MustNewConstMetric(r.root.errDesc, prometheus.GaugeValue, -e.Error, lvs...)
+		if e.Error != 0 || !zeroSent {
+			ch <- prometheus.MustNewConstMetric(r.root.errDesc, prometheus.GaugeValue, -e.Error, lvs...)
+			if e.Error == 0 {
+				zeroSent = true
+			}
+		}
 	}
 }
 
