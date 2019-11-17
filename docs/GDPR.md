@@ -3,11 +3,15 @@
 
  1. The request must include:
     - All guild IDs that data is requested for, and all channel IDs if the bot has been removed from the channel.
-    - Proof that the requester has sufficient authority over the guild (note: the `cmd/identify_guilds` script can be sufficient to prove this, if the request came over Discord)
+    - Proof that the requester has sufficient authority over the guild
+
+    Use the identify_guilds script to check whether the requester has authority:
+    `go run ~/go/src/github.com/riking/AutoDelete/cmd/identify_guilds.go -printroles $guildid`
 
  2. Pull all configuration .yml files from data/ in the bot storage directory for the identified guild:
 
-        grep -l "$guild_id" data/*.yml
+        grep -l "$guildid" data/*.yml > /tmp/data_request_"$guildid"_channels
+        grep -l "$guildid" data/*.yml | zip /tmp/data_request_"$guildid"_configs.zip -@
 
     If channel IDs are requested, add those to the list. Add all matched files to the response.
     Keep the list of all matched channel IDs for the next step.
