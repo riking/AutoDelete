@@ -101,7 +101,7 @@ type topkRoot struct {
 	countDesc *prometheus.Desc
 	errDesc   *prometheus.Desc
 
-	variableLabels []string
+	variableLabels  []string
 	reportThreshold float64
 }
 
@@ -147,7 +147,8 @@ func NewTopK(opts TopKOpts, labelNames []string) TopK {
 		errDesc: prometheus.NewDesc(
 			fmt.Sprintf("%s_error", fqName), opts.Help, varLabels, opts.ConstLabels),
 
-		variableLabels: varLabels,
+		variableLabels:  varLabels,
+		reportThreshold: opts.ReportingThreshold,
 	}
 	return &topkCurry{root: root, curry: nil}
 }
