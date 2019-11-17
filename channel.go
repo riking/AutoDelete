@@ -69,13 +69,15 @@ var (
 		Namespace: nsAutodelete,
 		Name: "message_reaps_by_channel",
 		Help: "Top-K of channels with the most messages deleted",
-		Buckets: 100,
+		Buckets: 50,
+		ReportingThreshold: 150,
 	}, []string{"channel_id"})
 	mTopDeletionGuilds = topk.NewTopK(topk.TopKOpts{
 		Namespace: nsAutodelete,
 		Name: "message_reaps_by_guild",
 		Help: "Top-K of guilds with the most messages deleted",
-		Buckets: 100,
+		Buckets: 50,
+		ReportingThreshold: 150,
 	}, []string{"guild_id"})
 )
 
