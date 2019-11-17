@@ -187,7 +187,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		IsDonor:      false, // TODO
 	}
 
-	if ok {
+	if mCh != nil {
 		newManagedChannel = mCh.Export()
 		newManagedChannel.LiveTime = duration
 		newManagedChannel.MaxMessages = count
