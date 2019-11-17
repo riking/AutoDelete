@@ -10,7 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/riking/AutoDelete/go-prometheus-topk"
+	topk "github.com/riking/AutoDelete/go-prometheus-topk"
 )
 
 const minTimeBetweenDeletion = time.Second * 5
@@ -66,17 +66,17 @@ var (
 		Help:      "Number of errors encountered when single-deleting messages",
 	}, []string{"error_code"})
 	mTopDeletionChannels = topk.NewTopK(topk.TopKOpts{
-		Namespace: nsAutodelete,
-		Name: "message_reaps_by_channel",
-		Help: "Top-K of channels with the most messages deleted",
-		Buckets: 50,
+		Namespace:          nsAutodelete,
+		Name:               "message_reaps_by_channel",
+		Help:               "Top-K of channels with the most messages deleted",
+		Buckets:            50,
 		ReportingThreshold: 150,
 	}, []string{"channel_id"})
 	mTopDeletionGuilds = topk.NewTopK(topk.TopKOpts{
-		Namespace: nsAutodelete,
-		Name: "message_reaps_by_guild",
-		Help: "Top-K of guilds with the most messages deleted",
-		Buckets: 50,
+		Namespace:          nsAutodelete,
+		Name:               "message_reaps_by_guild",
+		Help:               "Top-K of guilds with the most messages deleted",
+		Buckets:            50,
 		ReportingThreshold: 150,
 	}, []string{"guild_id"})
 )
