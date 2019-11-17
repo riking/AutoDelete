@@ -302,7 +302,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 		return err
 	}
 	msgs := msgsA
-	if len(msgsA) == 100 && c.IsDonor {
+	for c.IsDonor && len(msgsA) == 100 && len(msgs) < 500 {
 		fmt.Println("[TEST] Loading extended backlog for", c)
 		before := msgs[len(msgs)-1].ID
 
@@ -313,6 +313,9 @@ func (c *ManagedChannel) LoadBacklog() error {
 		}
 
 		msgs = append(msgs, msgsA...)
+	}
+	if c.IsDonor && len(msgs) >= 500 {
+		c.bot.ChannelMessageSend(c.ChannelID, fmt.Sprintf("[Notice] The number of messages in this channel is over 1000. Messages may not be reliably deleted."))
 	}
 
 	pins, pinsErr := c.loadPins()
