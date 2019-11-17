@@ -174,7 +174,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 	}
 
 	b.mu.RLock()
-	mCh, ok := b.channels[m.ChannelID]
+	mCh := b.channels[m.ChannelID]
 	b.mu.RUnlock()
 
 	var newManagedChannel = ManagedChannelMarshal{
