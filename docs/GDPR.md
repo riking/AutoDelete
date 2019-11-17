@@ -19,3 +19,8 @@
 
 This is all stored data.
 
+## Canned response for not enough information
+
+Hello, it appears that you have submitted a data access request. Because the bot does not store data associated with any particular user, you will need to prove that you have control over the guild in question.
+
+Please provide the guild IDs in question.
