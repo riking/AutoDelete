@@ -35,6 +35,12 @@ If you need extra help, say `@AutoDelete adminhelp ... message ...` to send a me
 
 _The following section is a DRAFT and may be incomplete and is subject to change, though the information present is correct to the best of my knowledge._
 
-The "community instance" of the bot may retain operational usage data, including data that identifies a particular guild or channel ID with high-resolution timestamps, for up to 90 days. Contact Riking via the announcements server if you would like to request a copy of this data under the GDPR or equivalent consumer rights legislation.
+The "community instance" of the bot will retain operational usage data, including data that identifies a particular guild or channel ID and/or with high-resolution timestamps. The full form of this data will be retained for between 15 and [TBD: research Prometheus collector guarantees] days, and aggregated or summarized forms will be retained for up to 1.5 years. Usage data will not be used for commercial purposes except for the purpose of encouraging people to financially support the bot in a non-automated manner (in particular, usage data will not be sold or provided to any third party).
 
-No message content is ever retained, except in the case when a message "@-mentions" the bot, where it may be retained to provide support or improve the bot. The "adminhelp" command transmits the provided message content in such a way that it is retained even if you delete the original message.
+Contact Riking via the announcements server if you would like to request a copy of this data under the GDPR or equivalent consumer rights legislation.
+
+The settings for a channel are kept on disk with the channel ID, guild ID, pinned message IDs, pin version timestamp, and time / count settings together. In the case that a channel is removed from the bot, either through `set 0` or kicking the bot from the server, these settings are deleted. Backup or archival copies of the settings may be retained indefinitely but will not be used except for the purposes of disaster recovery.
+
+No message content is ever retained, except in the case when a message "@-mentions" the bot, where it may be retained to provide support or improve the bot. The "adminhelp" command transmits the provided message content to a channel in Discord and is subject to Discord's retention policies. Deleting a command invocation has no effect on the duration of storage.
+
+Any changes to this policy will be announced on the support server in the #announce channel.
