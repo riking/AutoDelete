@@ -26,7 +26,11 @@
         curl -o /tmp/data_request_"$guildid"_guilddata http://localhost:4000/api/v1/query?query=autodelete_message_reaps_by_guild%7Bguild_id%3D~%22"${guildid}"%22%7D%5B15d%5D
         zip /tmp/data_request_"$guildid"_configs.zip /tmp/data_request_"$guildid"_channeldata /tmp/data_request_"$guildid"_guilddata
 
-This is all stored data.
+ 4. Download and deliver the package:
+
+        scp autodelete:/tmp/data_request_"$guildid"_configs.zip .
+
+    Remember to delete it from your system after it's delivered!
 
 ## Canned response for not enough information
 
