@@ -21,6 +21,11 @@
     `autodelete_message_reaps_by_channel{channel_id=~"123|456|789"}[15d]` and
     deliver the results in the response by ... TODO: construct an API query so I can give them a file
 
+        joined_channel_ids="123|456"
+        curl -o /tmp/data_request_"$guildid"_channeldata http://localhost:4000/api/v1/query?query=autodelete_message_reaps_by_channel%7Bchannel_id%3D~%22"${joined_channel_ids}"%22%7D%5B15d%5D
+        curl -o /tmp/data_request_"$guildid"_guilddata http://localhost:4000/api/v1/query?query=autodelete_message_reaps_by_guild%7Bguild_id%3D~%22"${guildid}"%22%7D%5B15d%5D
+        zip /tmp/data_request_"$guildid"_configs.zip /tmp/data_request_"$guildid"_channeldata /tmp/data_request_"$guildid"_guilddata
+
 This is all stored data.
 
 ## Canned response for not enough information
