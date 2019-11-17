@@ -16,10 +16,7 @@
     If channel IDs are requested, add those to the list. Add all matched files to the response.
     Keep the list of all matched channel IDs for the next step.
 
- 3. Perform a Prometheus query for
-    `autodelete_message_reaps_by_guild{guild_id="..."}[15d]` and
-    `autodelete_message_reaps_by_channel{channel_id=~"123|456|789"}[15d]` and
-    deliver the results in the response by ... TODO: construct an API query so I can give them a file
+ 3. Perform the following Prometheus queries for all channel- and guild- specific information:
 
         joined_channel_ids="123|456"
         curl -o /tmp/data_request_"$guildid"_channeldata http://localhost:4000/api/v1/query?query=autodelete_message_reaps_by_channel%7Bchannel_id%3D~%22"${joined_channel_ids}"%22%7D%5B15d%5D
