@@ -104,7 +104,7 @@ func CommandSetDonor(b *Bot, m *discordgo.Message, rest []string) {
 	b.saveChannelConfig(mCh.Export())
 
 	b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("set %v as a donor channel", channelID))
-	b.QueueLoadBacklog(mCh, false)
+	b.QueueLoadBacklog(mCh, QOSInteractive)
 }
 
 func CommandModify(b *Bot, m *discordgo.Message, rest []string) {

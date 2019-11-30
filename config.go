@@ -157,7 +157,7 @@ func (b *Bot) setChannelConfig(conf ManagedChannelMarshal) error {
 	delete(b.channels, conf.ID)
 	b.mu.Unlock()
 
-	return b.loadChannel(conf.ID)
+	return b.loadChannel(conf.ID, QOSInteractive)
 }
 
 func (b *Bot) handleCriticalPermissionsErrors(channelID string, srcErr error) bool {
@@ -256,7 +256,7 @@ func (b *Bot) initialLoadChannel(chID string) {
 	if !b.IsInShard(ch.GuildID) {
 		return
 	}
-	err = b.loadChannel(chID)
+	err = b.loadChannel(chID, QOSInit)
 
 	errHandled = b.handleCriticalPermissionsErrors(chID, err)
 
@@ -280,7 +280,7 @@ func (b *Bot) initialLoadChannel(chID string) {
 	}
 }
 
-func (b *Bot) loadChannel(channelID string) error {
+func (b *Bot) loadChannel(channelID string, qos LoadQOS) error {
 	// ensure channel exists
 	ch, err := b.Channel(channelID)
 	if err != nil {
@@ -316,9 +316,9 @@ func (b *Bot) loadChannel(channelID string) error {
 	b.mu.Unlock()
 
 	if ch.LastPinTimestamp != "" {
-		b.QueueLoadBacklog(mCh, true) // didFail = true
+		b.QueueLoadBacklog(mCh, qos.Upgrade(QOSInitNoPins))
 	} else {
-		b.QueueLoadBacklog(mCh, false)
+		b.QueueLoadBacklog(mCh, qos.Upgrade(QOSInitWithPins))
 	}
 	return nil
 }

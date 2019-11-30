@@ -20,6 +20,33 @@ const (
 	queueLoad  = "load"
 )
 
+// Quality of service for the load queues. Lower numbers are higher priority.
+type LoadQOS int8
+
+const (
+	QOSInteractive         LoadQOS = iota // Modify command
+	QOSNewMessage                         // Saw message in channel
+	QOSInitNoPins                         // Bot start events
+	QOSLargeDelete                        // Deleted >25 messages
+	QOSSingleMessageDelete                // Saw extremely old messages
+	QOSLoadError                          // Previous attempt error
+	QOSInitWithPins                       // Start event with LPTS
+
+	QOSInvalid
+	QOSInit = QOSInitWithPins
+)
+
+func (q LoadQOS) ApplyBackoff() bool {
+	return q == QOSSingleMessageDelete
+}
+
+func (q LoadQOS) Upgrade(to LoadQOS) LoadQOS {
+	if q < to {
+		return q
+	}
+	return to
+}
+
 var (
 	mReapqLen = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: nsAutodelete,
@@ -286,16 +313,16 @@ func (b *Bot) LoadAllBacklogs() {
 	b.loadRetries.cond.L.Unlock()
 }
 
-
-func (b *Bot) QueueLoadBacklog(c *ManagedChannel, didFail bool) {
+func (b *Bot) QueueLoadBacklog(c *ManagedChannel, qos LoadQOS) {
 	c.mu.Lock()
 	loadDelay := c.loadFailures
-	if didFail {
+	if qos.ApplyBackoff() {
 		c.loadFailures = time.Duration(int64(loadDelay)*2 + int64(mrand.Intn(int(5*time.Second))))
 		loadDelay = c.loadFailures
 	}
 	c.mu.Unlock()
 
+	_ = qos // TODO: use the TOS
 	b.loadRetries.Update(c, time.Now().Add(loadDelay))
 }
 
@@ -388,7 +415,7 @@ func (b *Bot) loadWorker(q *reapQueue, mayTimeout bool) {
 			q.curMu.Unlock()
 
 			if isRetryableLoadError(err) {
-				b.QueueLoadBacklog(ch, true)
+				b.QueueLoadBacklog(ch, QOSLoadError)
 			}
 		}
 	}
@@ -422,7 +449,7 @@ func (b *Bot) reapWorker(q *reapQueue, mayTimeout bool) {
 		q.curMu.Unlock()
 		b.QueueReap(ch)
 		if shouldQueueBacklog {
-			b.QueueLoadBacklog(ch, true /* didFail */)
+			b.QueueLoadBacklog(ch, QOSLargeDelete)
 		}
 	}
 }

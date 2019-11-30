@@ -262,7 +262,7 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 func (c *ManagedChannel) LoadBacklogNow() {
 	err := c.LoadBacklog()
 	if isRetryableLoadError(err) {
-		c.bot.QueueLoadBacklog(c, true)
+		c.bot.QueueLoadBacklog(c, QOSLoadError)
 	}
 }
 
@@ -623,7 +623,7 @@ nobulk:
 			}
 		}
 		// re-load the backlog in case this surfaced more things to delete
-		c.bot.QueueLoadBacklog(c, false /*didFail*/)
+		c.bot.QueueLoadBacklog(c, QOSSingleMessageDelete)
 	}()
 	return -1, nil
 }

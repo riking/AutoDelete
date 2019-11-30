@@ -137,7 +137,7 @@ func (b *Bot) OnMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	b.mu.RUnlock()
 
 	if !ok {
-		b.loadChannel(m.Message.ChannelID)
+		b.loadChannel(m.Message.ChannelID, QOSNewMessage)
 		b.mu.RLock()
 		mCh = b.channels[m.Message.ChannelID]
 		b.mu.RUnlock()
