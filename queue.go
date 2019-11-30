@@ -205,8 +205,9 @@ func (q *reapQueue) Update(ch *ManagedChannel, t time.Time) {
 
 	idx := -1
 	for i, v := range *q.items {
-		if v.ch == ch {
+		if v.ch.ChannelID == ch.ChannelID {
 			idx = i
+			(*q.items)[i].ch = ch
 			break
 		}
 	}
