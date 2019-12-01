@@ -16,9 +16,13 @@ import (
 
 const minTimeBetweenDeletion = time.Second * 5
 const minTimeBetweenLoadBacklog = time.Millisecond * 30
-const backlogReloadLimit = 100
-const backlogAutoReloadPreFraction = 0.8
-const backlogAutoReloadDeleteFraction = 0.25
+const (
+	backlogAutoReloadPreFraction    = 0.8
+	backlogAutoReloadDeleteFraction = 0.25
+	backlogChunkLimit               = 100
+	backlogLimitNonDonor            = 100
+	backlogLimitDonor               = 700
+)
 
 var (
 	mBacklogLoadLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
@@ -296,17 +300,21 @@ func (c *ManagedChannel) LoadBacklog() error {
 	}()
 
 	// Load messages & pins
-	msgsA, err := c.bot.s.ChannelMessages(c.ChannelID, 100, "", "", "")
+	msgsA, err := c.bot.s.ChannelMessages(c.ChannelID, backlogChunkLimit, "", "", "")
 	if err != nil {
 		fmt.Println("[ERR ] could not load backlog for", c, err)
 		return err
 	}
 	msgs := msgsA
-	for c.IsDonor && len(msgsA) == 100 && len(msgs) < 500 {
+	limit := backlogLimitNonDonor
+	if c.IsDonor {
+		limit = backlogLimitDonor
+	}
+	for len(msgsA) == backlogChunkLimit && len(msgs) < limit {
 		fmt.Println("[TEST] Loading extended backlog for", c, len(msgsA))
 		before := msgs[len(msgs)-1].ID
 
-		msgsA, err = c.bot.s.ChannelMessages(c.ChannelID, 100, before, "", "")
+		msgsA, err = c.bot.s.ChannelMessages(c.ChannelID, backlogChunkLimit, before, "", "")
 		if err != nil {
 			fmt.Println("[ERR ] could not load backlog for", c, err)
 			return err
@@ -314,8 +322,8 @@ func (c *ManagedChannel) LoadBacklog() error {
 
 		msgs = append(msgs, msgsA...)
 	}
-	if c.IsDonor && len(msgs) >= 500 {
-		c.bot.s.ChannelMessageSend(c.ChannelID, fmt.Sprintf("[Notice] The number of messages in this channel is over 500. Messages may not be reliably deleted."))
+	if len(msgs) >= limit {
+		c.bot.s.ChannelMessageSend(c.ChannelID, fmt.Sprintf("⚠️ The number of messages in this channel is over %d. Messages may not be reliably deleted.", limit))
 	}
 
 	pins, pinsErr := c.loadPins()
@@ -682,6 +690,6 @@ func (c *ManagedChannel) collectMessagesToDelete() (m []string, needsQueueBacklo
 		}
 	}
 
-	return toDelete, ((nLiveMessages >= backlogReloadLimit*backlogAutoReloadPreFraction) &&
-		(len(toDelete) > backlogReloadLimit*backlogAutoReloadDeleteFraction)), false
+	return toDelete, ((nLiveMessages >= backlogChunkLimit*backlogAutoReloadPreFraction) &&
+		(len(toDelete) > backlogChunkLimit*backlogAutoReloadDeleteFraction)), false
 }
