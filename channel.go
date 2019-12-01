@@ -20,8 +20,10 @@ const (
 	backlogAutoReloadPreFraction    = 0.8
 	backlogAutoReloadDeleteFraction = 0.25
 	backlogChunkLimit               = 100
+)
+var (
 	backlogLimitNonDonor            = 200
-	backlogLimitDonor               = 700
+	backlogLimitDonor               = 1000
 )
 
 var (

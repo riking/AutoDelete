@@ -1,3 +1,4 @@
+# see config.go "type Config" for more fields
 clientid:
 clientsecret:
 bottoken:
@@ -5,3 +6,5 @@ adminuser:
 http:
   listen: "localhost:2202"
   public: "https://home.riking.org"
+backlog_limit: 200
+errorlog: ""

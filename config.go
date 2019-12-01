@@ -39,6 +39,12 @@ func New(c Config) *Bot {
 	prometheus.MustRegister(reapqCollector{[]*reapQueue{b.reaper, b.loadRetries}})
 	go reapScheduler(b.reaper, b.reapWorker)
 	go reapScheduler(b.loadRetries, b.loadWorker)
+	if c.BacklogLengthLimit != 0 {
+		backlogLimitNonDonor = c.BacklogLengthLimit
+	}
+	if c.DonorBacklogLimit != 0 {
+		backlogLimitDonor = c.DonorBacklogLimit
+	}
 	return b
 }
 
@@ -46,17 +52,24 @@ type Config struct {
 	ClientID     string `yaml:"clientid"`
 	ClientSecret string `yaml:"clientsecret"`
 	BotToken     string `yaml:"bottoken"`
+	// discord user ID
 	AdminUser    string `yaml:"adminuser"`
+	// 0: do not use sharding
 	Shards       int    `yaml:"shards"`
+	// discord channel ID
 	ErrorLogCh   string `yaml:"errorlog"`
 	HTTP         struct {
 		Listen string `yaml:"listen"`
 		Public string `yaml:"public"`
 	} `yaml:"http"`
-	//Database struct {
-	//	Driver string `yaml:"driver"`
-	//	URL    string `yaml:"url"`
-	//} `yaml:"db,flow"`
+
+	// discord guild ID
+	DonorGuild   string   `yaml:"donor_guild"`
+	// discord role IDs
+	DonorRoleIDs []string `yaml:"donor_role"`
+
+	BacklogLengthLimit int `yaml:"backlog_limit"`
+	DonorBacklogLimit  int `yaml:"backlog_limit_donor"`
 }
 
 type ManagedChannelMarshal struct {
