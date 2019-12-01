@@ -323,7 +323,7 @@ func (c *ManagedChannel) LoadBacklog() error {
 		msgs = append(msgs, msgsA...)
 	}
 	if len(msgs) >= limit {
-		c.bot.s.ChannelMessageSend(c.ChannelID, fmt.Sprintf("⚠️ The number of messages in this channel is over %d. Messages may not be reliably deleted.", limit))
+		// c.bot.s.ChannelMessageSend(c.ChannelID, fmt.Sprintf("⚠️ The number of messages in this channel is over %d. Messages may not be reliably deleted.", limit))
 	}
 
 	pins, pinsErr := c.loadPins()
