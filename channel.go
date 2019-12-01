@@ -20,7 +20,7 @@ const (
 	backlogAutoReloadPreFraction    = 0.8
 	backlogAutoReloadDeleteFraction = 0.25
 	backlogChunkLimit               = 100
-	backlogLimitNonDonor            = 100
+	backlogLimitNonDonor            = 200
 	backlogLimitDonor               = 700
 )
 
