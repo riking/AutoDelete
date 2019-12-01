@@ -14,6 +14,7 @@ import (
 const (
 	schedulerTimeout = 250 * time.Millisecond
 	workerTimeout    = 5 * time.Second
+	maxLoadBackoff   = 30 * time.Minute
 
 	labelQueue = "queue"
 	queueReap  = "reap"
@@ -21,6 +22,8 @@ const (
 )
 
 // Quality of service for the load queues. Lower numbers are higher priority.
+//
+// The reuse of the reap queue for backlog load ordering is a hack - this should really be an ordered list of FIFO queues - but it's easier to just reuse the code. Plus, we get "wait until timestamp" for QOSLoadError for "free".
 type LoadQOS int8
 
 const (
@@ -29,15 +32,17 @@ const (
 	QOSInitNoPins                         // Bot start events
 	QOSLargeDelete                        // Deleted >25 messages
 	QOSSingleMessageDelete                // Saw extremely old messages
-	QOSLoadError                          // Previous attempt error
 	QOSInitWithPins                       // Start event with LPTS
+	QOSLoadError                          // Previous attempt error
 
 	QOSInvalid
 	QOSInit = QOSInitWithPins
 )
 
+var qosEpoch = time.Now().Add(-300 * time.Hour)
+
 func (q LoadQOS) ApplyBackoff() bool {
-	return q == QOSSingleMessageDelete
+	return q == QOSSingleMessageDelete || q == QOSLoadError
 }
 
 func (q LoadQOS) Upgrade(to LoadQOS) LoadQOS {
@@ -45,6 +50,10 @@ func (q LoadQOS) Upgrade(to LoadQOS) LoadQOS {
 		return q
 	}
 	return to
+}
+
+func (q LoadQOS) Time() time.Time {
+	return qosEpoch.Add(time.Duration(int(q)))
 }
 
 var (
@@ -314,16 +323,22 @@ func (b *Bot) LoadAllBacklogs() {
 }
 
 func (b *Bot) QueueLoadBacklog(c *ManagedChannel, qos LoadQOS) {
-	c.mu.Lock()
-	loadDelay := c.loadFailures
-	if qos.ApplyBackoff() {
-		c.loadFailures = time.Duration(int64(loadDelay)*2 + int64(mrand.Intn(int(5*time.Second))))
-		loadDelay = c.loadFailures
-	}
-	c.mu.Unlock()
+	queuePosition := qos.Time()
 
-	_ = qos // TODO: use the TOS
-	b.loadRetries.Update(c, time.Now().Add(loadDelay))
+	if qos.ApplyBackoff() {
+		c.mu.Lock()
+		loadDelay := c.loadFailures
+		loadDelay = time.Duration(int64(loadDelay)*2 + int64(mrand.Intn(int(5*time.Second))))
+		if loadDelay >= maxLoadBackoff {
+			loadDelay = maxLoadBackoff
+		}
+		c.loadFailures = loadDelay
+		queuePosition = time.Now().Add(loadDelay)
+
+		c.mu.Unlock()
+	}
+
+	b.loadRetries.Update(c, queuePosition)
 }
 
 func reapScheduler(q *reapQueue, workerFunc func(*reapQueue, bool)) {
