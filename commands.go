@@ -2,6 +2,7 @@ package autodelete
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -196,6 +197,9 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 
 	if doNotReload {
 		err = b.deleteChannelConfig(m.ChannelID)
+		if os.IsNotExist(err) {
+			err = nil
+		}
 	} else {
 		err = b.setChannelConfig(newManagedChannel)
 	}
@@ -210,7 +214,6 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		if mCh != nil {
 			mCh.Disable()
 		}
-		return
 	}
 
 	// Wait for LoadBacklog() to complete by watching isStarted
