@@ -149,6 +149,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 	}
 
 	var confMessage *discordgo.Message
+	doNotReload := false
 
 	if duration != 0 && count != 0 {
 		confMessage, err = b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will be deleted after %s or %d messages, whichever comes first.", duration, count))
@@ -159,6 +160,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		confMessage, err = b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will be deleted after %d other messages.", count))
 	} else {
 		confMessage, err = b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Messages in this channel will not be auto-deleted."))
+		doNotReload = true
 	}
 
 	if err != nil {
@@ -192,12 +194,24 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		newManagedChannel.MaxMessages = count
 	}
 
-	err = b.setChannelConfig(newManagedChannel)
+	if doNotReload {
+		err = b.deleteChannelConfig(m.ChannelID)
+	} else {
+		err = b.setChannelConfig(newManagedChannel)
+	}
+
 	if err != nil {
 		fmt.Println("Error:", err)
 		b.s.ChannelMessageSend(m.ChannelID, "Encountered error, settings may or may not have saved.\n"+err.Error())
 	}
 	fmt.Println("[load] Changed settings for channel", m.ChannelID, confMessage.Content)
+
+	if doNotReload {
+		if mCh != nil {
+			mCh.Disable()
+		}
+		return
+	}
 
 	// Wait for LoadBacklog() to complete by watching isStarted
 	go func() {
