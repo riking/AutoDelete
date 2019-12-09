@@ -233,7 +233,8 @@ func (b *Bot) Channel(channelID string) (*discordgo.Channel, error) {
 	return ch, nil
 }
 
-const useRatelimitWorkaround = true
+const useRatelimitWorkaround = false
+var pinsGlobalRatelimit = time.NewTicker(1*time.Second)
 
 func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 	// timing note: should always be cached
@@ -245,6 +246,8 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 	if disCh.LastPinTimestamp == "" {
 		return nil, nil
 	}
+
+	<-pinsGlobalRatelimit
 
 	timer := prometheus.NewTimer(mPinLoadLatency)
 	defer timer.ObserveDuration()
