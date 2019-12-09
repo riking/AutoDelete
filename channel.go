@@ -233,7 +233,7 @@ func (b *Bot) Channel(channelID string) (*discordgo.Channel, error) {
 	return ch, nil
 }
 
-const useRatelimitWorkaround = false
+const useRatelimitWorkaround = true
 var pinsGlobalRatelimit = time.NewTicker(1*time.Second)
 
 func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
