@@ -241,6 +241,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 	go func() {
 		channelID := m.ChannelID
 		msgID := confMessage.ID
+		numMessages := 0
 
 		b.mu.RLock()
 		mCh := b.channels[channelID]
@@ -250,13 +251,13 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 			case <-mCh.isStarted:
 			case <-time.After(30 * time.Minute):
 			}
+			// Check for backlog length exceeded
+			mCh.mu.Lock()
+			numMessages := len(mCh.liveMessages)
+			mCh.mu.Unlock()
 		}
 
 		// Check for backlog length exceeded
-		mCh.mu.Lock()
-		numMessages := len(mCh.liveMessages)
-		mCh.mu.Unlock()
-
 		limit := backlogLimitNonDonor
 		if isDonor {
 			limit = backlogLimitDonor
