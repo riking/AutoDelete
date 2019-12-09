@@ -328,7 +328,7 @@ func (b *Bot) loadChannel(channelID string, qos LoadQOS) error {
 	b.channels[channelID] = mCh
 	b.mu.Unlock()
 
-	if ch.LastPinTimestamp != "" {
+	if ch.LastPinTimestamp == "" {
 		b.QueueLoadBacklog(mCh, qos.Upgrade(QOSInitNoPins))
 	} else {
 		b.QueueLoadBacklog(mCh, qos.Upgrade(QOSInitWithPins))
