@@ -253,7 +253,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 			}
 			// Check for backlog length exceeded
 			mCh.mu.Lock()
-			numMessages := len(mCh.liveMessages)
+			numMessages = len(mCh.liveMessages)
 			mCh.mu.Unlock()
 		}
 
