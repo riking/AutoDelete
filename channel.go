@@ -234,7 +234,8 @@ func (b *Bot) Channel(channelID string) (*discordgo.Channel, error) {
 }
 
 const useRatelimitWorkaround = true
-var pinsGlobalRatelimit = time.NewTicker(1*time.Second)
+const useAlternateRatelimiter = false
+var alternateRL = discordgo.NewRatelimiter()
 
 func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 	// timing note: should always be cached
@@ -257,7 +258,14 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 	if useRatelimitWorkaround {
 		fmt.Printf("[load] %s: loading pins\n", c)
 		// Inlined ChannelMessagesPinned with the ratelimit bucket replaced
-		body, err := c.bot.s.RequestWithBucketID("GET", discordgo.EndpointChannelMessagesPins(c.ChannelID), nil, "/custom/pinsGlobal")
+		var body []byte
+		var err error
+		if useAlternateRatelimiter {
+			// the string "//reactions//" gets a special ratelimit applied
+			body, err = c.bot.s.RequestWithLockedBucket("GET", discordgo.EndpointChannelMessagesPins(c.ChannelID), "application/json", nil, alternateRL.LockBucket(fmt.Sprintf("/custom/pins/%s//reactions//x", c.ChannelID)), 0)
+		} else {
+			body, err = c.bot.s.RequestWithBucketID("GET", discordgo.EndpointChannelMessagesPins(c.ChannelID), nil, "/custom/pinsGlobal")
+		}
 		if err != nil {
 			return nil, err
 		}
