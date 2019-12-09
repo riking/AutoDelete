@@ -247,7 +247,7 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 		return nil, nil
 	}
 
-	<-pinsGlobalRatelimit
+	//<-pinsGlobalRatelimit
 
 	timer := prometheus.NewTimer(mPinLoadLatency)
 	defer timer.ObserveDuration()
