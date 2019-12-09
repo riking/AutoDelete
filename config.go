@@ -13,7 +13,8 @@ import (
 
 type Bot struct {
 	Config
-	storage Storage
+	storage    Storage
+	donorRoles map[string]bool
 
 	s  *discordgo.Session
 	me *discordgo.User
@@ -32,6 +33,7 @@ func New(c Config) *Bot {
 	b := &Bot{
 		Config:      c,
 		storage:     &DiskStorage{},
+		donorRoles:  makeSet(c.DonorRoleIDs),
 		channels:    make(map[string]*ManagedChannel),
 		reaper:      newReapQueue(4, queueReap),
 		loadRetries: newReapQueue(30, queueLoad),
@@ -53,20 +55,20 @@ type Config struct {
 	ClientSecret string `yaml:"clientsecret"`
 	BotToken     string `yaml:"bottoken"`
 	// discord user ID
-	AdminUser    string `yaml:"adminuser"`
+	AdminUser string `yaml:"adminuser"`
 	// 0: do not use sharding
-	Shards       int    `yaml:"shards"`
+	Shards int `yaml:"shards"`
 	// discord channel ID
-	ErrorLogCh   string `yaml:"errorlog"`
-	HTTP         struct {
+	ErrorLogCh string `yaml:"errorlog"`
+	HTTP       struct {
 		Listen string `yaml:"listen"`
 		Public string `yaml:"public"`
 	} `yaml:"http"`
 
 	// discord guild ID
-	DonorGuild   string   `yaml:"donor_guild"`
+	DonorGuild string `yaml:"donor_guild"`
 	// discord role IDs
-	DonorRoleIDs []string `yaml:"donor_role"`
+	DonorRoleIDs []string `yaml:"donor_roles"`
 
 	BacklogLengthLimit int `yaml:"backlog_limit"`
 	DonorBacklogLimit  int `yaml:"backlog_limit_donor"`
@@ -334,4 +336,12 @@ func (b *Bot) loadChannel(channelID string, qos LoadQOS) error {
 		b.QueueLoadBacklog(mCh, qos.Upgrade(QOSInitWithPins))
 	}
 	return nil
+}
+
+func makeSet(s []string) map[string]bool {
+	m := make(map[string]bool)
+	for _, v := range s {
+		m[v] = true
+	}
+	return m
 }

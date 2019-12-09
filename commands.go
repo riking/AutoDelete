@@ -107,6 +107,22 @@ func CommandSetDonor(b *Bot, m *discordgo.Message, rest []string) {
 	b.QueueLoadBacklog(mCh, QOSInteractive)
 }
 
+func (b *Bot) isDonor(userID string) (bool, error) {
+	if b.Config.DonorGuild == "" {
+		return false, nil
+	}
+	member, err := b.s.GuildMember(b.Config.DonorGuild, userID)
+	if err != nil {
+		return false, err
+	}
+	for _, r := range member.Roles {
+		if b.donorRoles[r] {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 	var duration time.Duration
 	var count int
@@ -175,6 +191,11 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		fmt.Println("[Warn]", "could not react to config reply", emojiErr)
 	}
 
+	isDonor, err := b.isDonor(m.Author.ID)
+	if err != nil {
+		fmt.Println("[Warn]", "could not check donor status", err)
+	}
+
 	b.mu.RLock()
 	mCh := b.channels[m.ChannelID]
 	b.mu.RUnlock()
@@ -186,7 +207,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		LiveTime:     duration,
 		MaxMessages:  count,
 		HasPins:      channel.LastPinTimestamp != "",
-		IsDonor:      false, // TODO
+		IsDonor:      isDonor,
 	}
 
 	if mCh != nil {
