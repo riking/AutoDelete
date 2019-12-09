@@ -248,9 +248,27 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		if mCh != nil {
 			select {
 			case <-mCh.isStarted:
-			case <-time.After(1 * time.Hour):
+			case <-time.After(30 * time.Minute):
 			}
 		}
+
+		// Check for backlog length exceeded
+		mCh.mu.Lock()
+		numMessages := len(mCh.liveMessages)
+		mCh.mu.Unlock()
+
+		limit := backlogLimitNonDonor
+		if isDonor {
+			limit = backlogLimitDonor
+		}
+
+		if count > limit {
+			b.s.ChannelMessageSend(channelID, fmt.Sprintf("⚠️ The number of messages configured for deletion is over %d. Messages will not be reliably deleted. (Configured: %d)", limit, count))
+		} else if numMessages > limit {
+			b.s.ChannelMessageSend(channelID, fmt.Sprintf("⚠️ The number of messages in this channel is over %d. Messages may not be reliably deleted. (Saw: %d)", limit, numMessages))
+		}
+
+		// Give done reaction
 		b.s.MessageReactionRemove(channelID, msgID, emojiBusy, "@me")
 		emojiErr = b.s.MessageReactionAdd(channelID, msgID, emojiDone)
 		time.Sleep(30 * time.Second)
