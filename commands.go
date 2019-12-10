@@ -265,7 +265,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 
 		if count > limit {
 			b.s.ChannelMessageSend(channelID, fmt.Sprintf("⚠️ The number of messages configured for deletion is over %d. Messages will not be reliably deleted. (Configured: %d)", limit, count))
-		} else if numMessages > limit {
+		} else if numMessages >= limit {
 			b.s.ChannelMessageSend(channelID, fmt.Sprintf("⚠️ The number of messages in this channel is over %d. Messages may not be reliably deleted. (Saw: %d)", limit, numMessages))
 		}
 
