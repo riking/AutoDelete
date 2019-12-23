@@ -21,6 +21,10 @@ cp "$(go env GOPATH)/src/github.com/riking/AutoDelete/docs/build.sh" .
 cp "$(go env GOPATH)/src/github.com/riking/AutoDelete/config.example.yml" config.yml
 mkdir data
 
+# Create Discord bot account, fill in details
+echo http://discordapp.com/developers/applications/me
+editor config.yml
+
 # Rebuild
 
 ./build.sh
