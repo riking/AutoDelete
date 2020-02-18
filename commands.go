@@ -294,7 +294,19 @@ func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {
 		perm := discordgo.PermissionManageServer
 		if apermissions&perm != perm {
 			b.s.ChannelMessageSend(m.ChannelID, "Leaving the current server requires MANAGE_SERVER permission.")
+			return
 		}
+	} else if rest[0] == "channel" && len(rest) == 2 {
+		if m.Author.ID != b.Config.AdminUser {
+			b.s.ChannelMessageSend(m.ChannelID, "Leaving other servers can only be done by the bot controller.")
+			return
+		}
+		channel, err := b.Channel(rest[0])
+		if err != nil {
+			b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Could not find channel %q", rest[0]))
+			return
+		}
+		guildID = channel.GuildID
 	} else {
 		if m.Author.ID != b.Config.AdminUser {
 			b.s.ChannelMessageSend(m.ChannelID, "Leaving other servers can only be done by the bot controller.")
@@ -303,12 +315,20 @@ func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {
 		guildID = rest[0]
 	}
 
-	msg := fmt.Sprintf("Leaving guild ID %s", guildID)
-	b.s.ChannelMessageSend(m.ChannelID, msg)
-	fmt.Println("[leav]", msg)
+	if guildID == b.Config.DonorGuild {
+		b.s.ChannelMessageSend(m.ChannelID, "Bot will never voluntarily leave the primary guild")
+		return
+	}
+
+	fmt.Println("[leav]", guildID, m.Author.String())
 	err := b.s.GuildLeave(guildID)
 	if err != nil {
+		msg := fmt.Sprintf("Error leaving guild ID %s: %v", guildID, err)
+		b.s.ChannelMessageSend(m.ChannelID, msg)
 		fmt.Println("[cmdE] error leaving:", err)
+	} else {
+		msg := fmt.Sprintf("Leaving guild ID %s: ok", guildID)
+		b.s.ChannelMessageSend(m.ChannelID, msg)
 	}
 }
 
