@@ -581,6 +581,11 @@ func (c *ManagedChannel) GetNextDeletionTime() (deadline time.Time) {
 
 const errCodeBulkDeleteOld = 50034
 
+type isTemporary interface {
+	error
+	Temporary() bool
+}
+
 func (c *ManagedChannel) Reap(msgs []string) (int, error) {
 	var err error
 	count := 0
@@ -604,6 +609,11 @@ nobulk:
 					}
 				}
 				return count, err
+			} else if tErr, ok := err.(isTemporary); ok && tErr.Temporary() {
+				// Temporary error, try again
+				mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
+				time.Sleep(50*time.Millisecond)
+				continue
 			} else if err != nil {
 				mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
 				return count, err
@@ -611,21 +621,28 @@ nobulk:
 			msgs = msgs[50:]
 			count += 50
 		}
-		err = c.bot.s.ChannelMessagesBulkDelete(c.ChannelID, msgs)
-		count += len(msgs)
-		if rErr, ok := err.(*discordgo.RESTError); ok {
-			if rErr.Message != nil {
-				mReapErrors.With(prometheus.Labels{"error_code": strconv.Itoa(rErr.Message.Code)}).Inc()
-				if rErr.Message.Code == errCodeBulkDeleteOld {
-					break nobulk
+		for {
+			err = c.bot.s.ChannelMessagesBulkDelete(c.ChannelID, msgs)
+			count += len(msgs)
+			if rErr, ok := err.(*discordgo.RESTError); ok {
+				if rErr.Message != nil {
+					mReapErrors.With(prometheus.Labels{"error_code": strconv.Itoa(rErr.Message.Code)}).Inc()
+					if rErr.Message.Code == errCodeBulkDeleteOld {
+						break nobulk
+					}
 				}
+				return count, err
+			} else if tErr, ok := err.(isTemporary); ok && tErr.Temporary() {
+				// Temporary error, try again
+				mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
+				time.Sleep(50*time.Millisecond)
+				continue
+			} else if err != nil {
+				mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
+				return count, err
 			}
-			return count, err
-		} else if err != nil {
-			mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
-			return count, err
+			return count, nil
 		}
-		return count, nil
 	}
 
 	// single-message delete required
