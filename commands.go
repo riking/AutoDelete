@@ -301,7 +301,7 @@ func CommandLeave(b *Bot, m *discordgo.Message, rest []string) {
 			b.s.ChannelMessageSend(m.ChannelID, "Leaving other servers can only be done by the bot controller.")
 			return
 		}
-		channel, err := b.Channel(rest[0])
+		channel, err := b.Channel(rest[1])
 		if err != nil {
 			b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Could not find channel %q", rest[0]))
 			return
