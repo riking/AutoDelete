@@ -21,6 +21,10 @@ Create a new "purged" channel where messages will automatically be deleted. Some
 The `100` in the start command is the maximum number of live messages in the channel before the oldest is deleted.
 The `24h` is a duration after which every message will be deleted. [Acceptable units](https://godoc.org/time#ParseDuration) are `h` for hours, `m` for minutes, `s` for seconds. *Warning*: Durations of a day or longer still need to be specified in hours.
 
+Make sure to mention the **bot user** and not the role alias!
+
+![Select the mention option with #6949 on the end.](docs/mention-user-not-role.png)
+
 A "voice-text" channel might want a shorter duration, e.g. 30m or 10m, when you just want "immediate" chat with no memory.
 
 *The bot must have permission to read (obviously) and send messages in the channel you are using*, in addition to the Manage Messages permission. If the bot is missing permissions, it will disable itself and attempt to tell you, though this usually won't work when it can't send messages.
