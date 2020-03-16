@@ -295,6 +295,27 @@ func (b *Bot) initialLoadChannel(chID string) {
 	}
 }
 
+func (b *Bot) GetChannel(channelID string, qos LoadQOS) (*ManagedChannel, error) {
+	b.mu.RLock()
+	mCh, ok := b.channels[channelID]
+	b.mu.RUnlock()
+
+	if ok {
+		return mCh, nil
+	}
+
+	err := b.loadChannel(channelID, qos)
+	if os.IsNotExist(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	b.mu.RLock()
+	mCh, _ = b.channels[channelID]
+	b.mu.RUnlock()
+	return mCh, nil
+}
+
 func (b *Bot) loadChannel(channelID string, qos LoadQOS) error {
 	// ensure channel exists
 	ch, err := b.Channel(channelID)

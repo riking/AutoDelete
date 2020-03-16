@@ -137,9 +137,11 @@ func CommandCheck(b *Bot, m *discordgo.Message, rest []string) {
 		return
 	}
 
-	b.mu.RLock()
-	mCh := b.channels[m.ChannelID]
-	b.mu.RUnlock()
+	mCh, err := b.GetChannel(m.ChannelID, QOSInteractive)
+	if err != nil {
+		b.s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Error checking settings: %v", err))
+		return
+	}
 
 	if mCh == nil {
 		b.s.ChannelMessageSend(m.ChannelID, "This channel is not set up for deletion.")
