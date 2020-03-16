@@ -1,6 +1,7 @@
 package autodelete
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
@@ -121,6 +122,51 @@ func (b *Bot) isDonor(userID string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func CommandCheck(b *Bot, m *discordgo.Message, rest []string) {
+	const perm = discordgo.PermissionManageMessages
+
+	apermissions, err := b.s.UserChannelPermissions(m.Author.ID, m.ChannelID)
+	if err != nil {
+		b.s.ChannelMessageSend(m.ChannelID, "could not check your permissions: "+err.Error())
+		return
+	}
+	if apermissions&perm == 0 {
+		b.s.ChannelMessageSend(m.ChannelID, "You must have the Manage Messages permission to change AutoDelete settings.")
+		return
+	}
+
+	b.mu.RLock()
+	mCh := b.channels[m.ChannelID]
+	b.mu.RUnlock()
+
+	if mCh == nil {
+		b.s.ChannelMessageSend(m.ChannelID, "This channel is not set up for deletion.")
+		return
+	}
+
+	duration := mCh.MessageLiveTime
+	count := mCh.MaxMessages
+	keeps := mCh.KeepMessages
+
+	var msg bytes.Buffer
+	msg.WriteString("Settings: Messages in this channel will ")
+	if duration != 0 && count != 0 {
+		fmt.Fprintf(&msg, "be deleted after %s or %d messages, whichever comes first.", duration, count)
+	} else if duration != 0 {
+		fmt.Fprintf(&msg, "be deleted after %s.", duration)
+	} else if count != 0 {
+		fmt.Fprintf(&msg, "be deleted after %d other messages.", count)
+	} else {
+		fmt.Fprintf(&msg, "[BUG?] not be auto-deleted (but are still being incorrectly tracked???).")
+	}
+
+	if len(keeps) > 1 {
+		fmt.Fprintf(&msg, " I am aware of %d pinned messages.", len(keeps) - 1)
+	}
+
+	b.s.ChannelMessageSend(m.ChannelID, msg.String())
 }
 
 func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
@@ -338,6 +384,7 @@ var commands = map[string]func(b *Bot, m *discordgo.Message, rest []string){
 	"start": CommandModify,
 	"setup": CommandModify,
 	"leave": CommandLeave,
+	"check": CommandCheck,
 
 	"ahelp":     CommandAdminHelp,
 	"adminhelp": CommandAdminHelp,
