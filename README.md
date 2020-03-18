@@ -8,7 +8,7 @@ Messages are deleted on a "rolling" basis -- if you set a 24-hour live time, eac
 
 If you have an urgent message about the operation of the bot, say `@AutoDelete adminhelp ... your message here ...` and I'll get back to you as soon as I see it.
 
-Add it to your server here: https://home.riking.org/discord_auto_delete/oauth/start
+Add it to your server here: https://autodelete.riking.org/discord_auto_delete/oauth/start
 
 **[Support me on Patreon](https://patreon.com/riking)** if you enjoy the bot or to help keep it running! https://www.patreon.com/riking
 
