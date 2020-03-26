@@ -189,9 +189,11 @@ func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdat
 
 func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
 	b.ReportToLogChannel("AutoDelete started.")
-	err := s.UpdateStatus(0, "in the garbage")
-	if err != nil {
-		fmt.Println("error setting game:", err)
+	if b.Config.StatusMessage != nil {
+		err := s.UpdateStatus(0, *b.Config.StatusMessage)
+		if err != nil {
+			fmt.Println("error setting game:", err)
+		}
 	}
 
 	go func() {

@@ -8,3 +8,4 @@ http:
   public: "https://home.riking.org"
 backlog_limit: 200
 errorlog: ""
+statusmessage: "in the garbage"

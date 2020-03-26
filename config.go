@@ -65,6 +65,8 @@ type Config struct {
 		Public string `yaml:"public"`
 	} `yaml:"http"`
 
+	StatusMessage *string `yaml:"statusmessage"`
+
 	// discord guild ID
 	DonorGuild string `yaml:"donor_guild"`
 	// discord role IDs
