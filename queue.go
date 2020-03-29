@@ -328,7 +328,7 @@ func (b *Bot) QueueLoadBacklog(c *ManagedChannel, qos LoadQOS) {
 	if qos.ApplyBackoff() {
 		c.mu.Lock()
 		loadDelay := c.loadFailures
-		loadDelay = time.Duration(int64(loadDelay)*2 + int64(mrand.Intn(int(5*time.Second))))
+		loadDelay = time.Duration(int64(loadDelay)*2 + int64(mrand.Intn(int(5*time.Second/time.Microsecond)))*time.Microsecond)
 		if loadDelay >= maxLoadBackoff {
 			loadDelay = maxLoadBackoff
 		}
