@@ -60,9 +60,14 @@ adminhelp content: Support
 
 See earlier answers for detailed descriptions.
 
+ - Volatile: Only ever stored in RAM. Fetched from the canonical data source on every process restart.
+ - Ephermal: Only ever stored in RAM. Outlives a bot process but not a machine reboot.
+ - Rotated: Written to disk or tmpfiles and cleaned up on a regular basis.
+ - Durable: Written to disk and expected to survive a machine reboot. Subject to disaster recovery plans.
+
 Message IDs, etc: Volatile, process lifetime
 Log lines: Ephermal, <15 days
-Structured logging: Rotated, <15 days [Aspirational. Current: Ephermal]
+Structured logging: Rotated, <15 days [Aspirational. Current: Volatile]
 @-mention content: Rotated, <15 days [Aspirational. Current: 'Log lines']
 Metrics: Durable, <18 months
 Configuration: Durable, indefinite
@@ -79,7 +84,7 @@ A server administrator with 'Manage Server' can delete all configuration data fo
 
 No process is implemented for deletion of log data, as this data is retained for less than 30 days.
 
-For deletion of 'adminhelp' command content, usres can make a request through the same channels as listed in the 'security issues' section.
+For deletion of 'adminhelp' command content, users can make a request through the same channels as listed in the 'security issues' section.
 
 ## Infrastructure
 _Tell us more about your application's infrastructure and your team's security practices._
