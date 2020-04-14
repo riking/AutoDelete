@@ -210,5 +210,8 @@ func (b *Bot) OnResume(s *discordgo.Session, r *discordgo.Resumed) {
 		time.Sleep(3 * time.Second)
 		b.LoadAllBacklogs()
 	}()
-	go s.UpdateStatus(0, "in the garbage")
+	err := s.UpdateStatus(0, *b.Config.StatusMessage)
+	if err != nil {
+		fmt.Println("error setting game:", err)
+	}
 }
