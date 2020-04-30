@@ -4,7 +4,7 @@ Description=caddy server for autodelete
 [Service]
 User=autodelete
 AmbientCapabilities=CAP_NET_BIND_SERVICE
-WorkingDirectory=/home/autodelete/caddy/
+WorkingDirectory=/home/autodelete/go/src/github.com/riking/AutoDelete/docs/caddy
 ExecStart=/usr/local/bin/caddy run
 ExecReload=/bin/kill -USR1 $MAINPID
 
