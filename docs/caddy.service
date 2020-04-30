@@ -1,0 +1,15 @@
+[Unit]
+Description=caddy server for autodelete
+
+[Service]
+User=autodelete
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+WorkingDirectory=/home/autodelete/caddy/
+ExecStart=/usr/local/bin/caddy run
+ExecReload=/bin/kill -USR1 $MAINPID
+
+Type=simple
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Mount the master copy of the autodelete data
+
+[Install]
+WantedBy=multi-user.target
+
+[Mount]
+What=autodelete@167.99.61.153:/home/autodelete/discord/data/
+Where=/mnt/autodelete/data
+Type=fuse.sshfs
+Options=_netdev,allow_other,IdentityFile=/root/.ssh/id_hz_ed25519,reconnect,ServerAliveInterval=30,ServerAliveCountMax=5,x-systemd.automount,uid=1000,gid=1000o

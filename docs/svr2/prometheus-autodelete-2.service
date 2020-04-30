@@ -1,0 +1,16 @@
+[Unit]
+Description=Prometheus monitoring server for AutoDelete
+
+[Service]
+User=prometheus
+ExecStart=/usr/local/bin/prometheus --config.file=/home/autodelete/go/src/github.com/riking/AutoDelete/docs/svr2/prometheus-secondary.yml --storage.tsdb.path=/var/prometheus/data/ --web.listen-address=localhost:4002  --storage.tsdb.retention.size=4GB --storage.tsdb.retention.time=45d --storage.tsdb.max-block-duration=3d
+Restart=always
+
+SyslogIdentifier=Prometheus
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/prometheus/
+
+[Install]
+WantedBy=multi-user.target
