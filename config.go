@@ -261,7 +261,7 @@ func (b *Bot) LoadChannelConfigs() error {
 func (b *Bot) initialLoadChannel(chID string) {
 	var errHandled = false
 
-	conf, err := b.storage.GetChannel(channelID)
+	conf, err := b.storage.GetChannel(chID)
 	if os.IsNotExist(err) {
 		// A delete raced with our load. Ignore.
 		return
