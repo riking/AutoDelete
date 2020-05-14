@@ -261,24 +261,26 @@ func (b *Bot) LoadChannelConfigs() error {
 func (b *Bot) initialLoadChannel(chID string) {
 	var errHandled = false
 
-	ch, err := b.Channel(chID)
-	if err != nil {
-		errHandled = b.handleCriticalPermissionsErrors(chID, err)
-		if errHandled {
-			return
-		}
-		fmt.Printf("Error loading configuration for channel %s: could not check guild ID: %v\n", chID, err)
+	conf, err := b.storage.GetChannel(channelID)
+	if os.IsNotExist(err) {
+		// A delete raced with our load. Ignore.
+		return
+	} else if err != nil {
+		fmt.Printf("[ ERR] Failed to load channel %s from storage: %v\n", chID, err)
+		// hope for the best i guess
 		return
 	}
-	if !b.IsInShard(ch.GuildID) {
+
+	if !b.IsInShard(conf.GuildID) {
 		return
 	}
+
 	err = b.loadChannel(chID, QOSInit)
 
 	errHandled = b.handleCriticalPermissionsErrors(chID, err)
 
 	if os.IsNotExist(err) {
-		fmt.Printf("Error loading configuration for %s: configuration file does not exist\n", chID)
+		fmt.Printf("[ ERR] loading configuration for %s: configuration file does not exist\n", chID)
 		errHandled = true
 	}
 	if err != nil && !errHandled {
@@ -292,8 +294,7 @@ func (b *Bot) initialLoadChannel(chID string) {
 		}
 	}
 	if err != nil && !errHandled {
-		fmt.Printf("Error loading configuration for %s: %v\n", chID, err)
-		errHandled = true
+		fmt.Printf("[ ERR] Gave up loading channel %s: %v", chID, err)
 	}
 }
 
