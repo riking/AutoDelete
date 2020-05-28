@@ -56,7 +56,7 @@ func main() {
 			continue
 		}
 
-		fmt.Printf("%s: name [%s] owner [%s] shard_discriminant [%d]\n", guild.ID, guild.Name, owner.String(), (guildIDNumeric>>22)%int64(*flagShardCount))
+		fmt.Printf("%s: name [%s] owner [%s] shard_discriminant [%d]\n", guild.ID, guild.Name, owner.String(), (guildIDNumeric>>22)%int64(conf.Shards))
 		if *flagPrintRoles {
 			printRoles(s, guild)
 		}
