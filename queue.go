@@ -78,6 +78,12 @@ var (
 		Help:      "seconds slept between queue items",
 		Buckets:   bucketsDeletionTimes,
 	}, []string{"queue"})
+	mReapqE2eLatency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: nsAutodelete,
+		Name:      "reapq_latency_e2e_seconds",
+		Help:      "delay between when a queue item was due and when it actually begun processing",
+		Buckets:   bucketsDeletionTimes,
+	}, []string{"queue"})
 	mReapqUpdate = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: nsAutodelete,
 		Name:      "reapq_updates",
@@ -155,7 +161,8 @@ func (pq priorityQueue) Peek() *pqItem {
 }
 
 type reapWorkItem struct {
-	ch *ManagedChannel
+	ch  *ManagedChannel
+	due time.Time
 }
 
 type workerToken struct{}
@@ -259,7 +266,7 @@ func (q *reapQueue) Update(ch *ManagedChannel, t time.Time) {
 	q.cond.Signal()
 }
 
-func (q *reapQueue) WaitForNext() *ManagedChannel {
+func (q *reapQueue) WaitForNext() (*ManagedChannel, time.Time) {
 	q.cond.L.Lock()
 start:
 	it := q.items.Peek()
@@ -280,7 +287,7 @@ start:
 	x := heap.Pop(q.items)
 	q.cond.L.Unlock()
 	it = x.(*pqItem)
-	return it.ch
+	return it.ch, it.nextReap
 }
 
 func (b *Bot) QueueReap(c *ManagedChannel) {
@@ -348,7 +355,7 @@ func reapScheduler(q *reapQueue, workerFunc func(*reapQueue, bool)) {
 	timer := time.NewTimer(0)
 
 	for {
-		ch := q.WaitForNext()
+		ch, due := q.WaitForNext()
 
 		q.curMu.Lock()
 		_, channelAlreadyBeingProcessed := q.curWork[ch]
@@ -361,7 +368,7 @@ func reapScheduler(q *reapQueue, workerFunc func(*reapQueue, bool)) {
 			continue
 		}
 
-		sendWorkItem(q, workerFunc, timer, reapWorkItem{ch: ch})
+		sendWorkItem(q, workerFunc, timer, reapWorkItem{ch: ch, due: due})
 	}
 }
 
@@ -439,12 +446,16 @@ func (b *Bot) loadWorker(q *reapQueue, mayTimeout bool) {
 func (b *Bot) reapWorker(q *reapQueue, mayTimeout bool) {
 	// TODO: implement mayTimeout
 	for work := range q.workCh {
-		ch := work.ch
+		ch, due := work.ch, work.due
 		msgs, shouldQueueBacklog, isDisabled := ch.collectMessagesToDelete()
 		if isDisabled {
 			mReapqDropChannel.WithLabelValues(q.label).Inc()
 			continue // drop ch
 		}
+
+		start := time.Now()
+		startLatency := start.Sub(due)
+		mReapqE2eLatency.WithLabelValues(q.label).Observe(float64(startLatency) / float64(time.Second))
 
 		fmt.Printf("[reap] %s: deleting %d messages\n", ch, len(msgs))
 		count, err := ch.Reap(msgs)
