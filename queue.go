@@ -216,6 +216,7 @@ func (c reapqCollector) Describe(ch chan<- *prometheus.Desc) {
 	mReapqWorkerCount.Describe(ch)
 	mReapqInFlight.Describe(ch)
 	mReapqWaitDuration.Describe(ch)
+	mReapqE2eLatency.Describe(ch)
 }
 
 func (c reapqCollector) Collect(ch chan<- prometheus.Metric) {
@@ -237,6 +238,7 @@ func (c reapqCollector) Collect(ch chan<- prometheus.Metric) {
 	mReapqWorkerCount.Collect(ch)
 	mReapqInFlight.Collect(ch)
 	mReapqWaitDuration.Collect(ch)
+	mReapqE2eLatency.Collect(ch)
 }
 
 // Update adds or inserts the expiry time for the given item in the queue.
