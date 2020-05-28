@@ -115,6 +115,7 @@ func (b *Bot) HandleMentions(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if ((split[0] == plainMention) ||
 		(split[0] == nickMention)) && len(split) > 1 {
 		cmd := split[1]
+		cmd = strings.ToLower(cmd)
 		fun, ok := commands[cmd]
 		if ok {
 			fmt.Printf("[ cmd] got command from %s (%s#%s) in %s (id %s) guild %s (id %s):\n  %v\n",
