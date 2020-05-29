@@ -281,9 +281,10 @@ start:
 	if it.nextReap.After(now) {
 		waitTime := it.nextReap.Sub(now)
 		fmt.Println("[reap] sleeping for ", waitTime-(waitTime%time.Second))
-		mReapqWaitDuration.WithLabelValues(q.label).Observe(float64(waitTime) / float64(time.Second))
 		q.timer.Reset(waitTime + 2*time.Millisecond)
 		q.cond.Wait()
+		actualWait := time.Now().Sub(now)
+		mReapqWaitDuration.WithLabelValues(q.label).Observe(float64(actualWait) / float64(time.Second))
 		goto start
 	}
 	x := heap.Pop(q.items)
