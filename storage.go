@@ -17,6 +17,9 @@ type Storage interface {
 	GetChannel(id string) (ManagedChannelMarshal, error)
 	SaveChannel(conf ManagedChannelMarshal) error
 	DeleteChannel(id string) error
+
+	IsBanned(guildID string) (bool, error)
+	AddBan(guildID string) (error)
 }
 
 /******************
@@ -29,6 +32,7 @@ type DiskStorage struct {
 
 const pathChannelConfDir = "./data"
 const pathChannelConfig = "./data/%s.yml"
+const pathBanList = "./data/bans.yml"
 
 func (s *DiskStorage) ListChannels() ([]string, error) {
 	files, err := ioutil.ReadDir(pathChannelConfDir)
@@ -39,6 +43,9 @@ func (s *DiskStorage) ListChannels() ([]string, error) {
 	for _, v := range files {
 		n := v.Name()
 		if !strings.HasSuffix(n, ".yml") {
+			continue
+		}
+		if strings.HasPrefix(n, "bans.yml") {
 			continue
 		}
 		chID := strings.TrimSuffix(n, ".yml")
@@ -95,4 +102,30 @@ func (s *DiskStorage) DeleteChannel(id string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *DiskStorage) IsBanned(guildID string) (bool, error) {
+	by, err := ioutil.ReadFile(pathBanList)
+	if os.IsNotExist(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	var conf BansFile
+	err = yaml.Unmarshal(by, &conf)
+	if err != nil {
+		return false, err
+	}
+
+	for _, v := range conf.Guilds {
+		if v == guildID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *DiskStorage) AddBan(guildID string) (error) {
+	return fmt.Errorf("unimplemented!")
 }

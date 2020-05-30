@@ -76,6 +76,10 @@ type Config struct {
 	DonorBacklogLimit  int `yaml:"backlog_limit_donor"`
 }
 
+type BansFile struct {
+	Guilds []string `yaml:"guilds"`
+}
+
 type ManagedChannelMarshal struct {
 	ID      string `yaml:"id"`
 	GuildID string `yaml:"guild_id"`

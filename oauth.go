@@ -57,8 +57,26 @@ func (b *Bot) HTTPOAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if err != nil {
 		fmt.Printf("%T %v", err, err)
-		http.Error(w, "bad token", http.StatusUnprocessableEntity)
+		http.Error(w, "An error occured and the bot could not join the server.", http.StatusUnprocessableEntity)
 		return
+	}
+	if guildInfo, ok := t.Extra("guild").(map[string]interface{}); ok {
+		if guildID, ok := guildInfo["id"].(string); ok {
+			if banned, err := b.storage.IsBanned(guildID); banned {
+				b.s.GuildLeave(guildID)
+				http.Error(w, "AutoDelete is not available on this server.", http.StatusForbidden)
+				fmt.Printf("[INFO] join attempt for banned server %s\n", guildID)
+				return
+			} else if err != nil {
+				fmt.Printf("[ERR] Could not check banlist: %T %v", err, err)
+				http.Error(w, "An error occured and the bot may not have joined the server.", http.StatusUnprocessableEntity)
+				return
+			}
+		} else {
+			fmt.Printf("[ERR] Unexpected type for guild.id: got %T\n", guildInfo["id"])
+		}
+	} else {
+		fmt.Printf("[ERR] Unexpected type for guild: got %T\n", t.Extra("guild"))
 	}
 
 	fmt.Println(t)
