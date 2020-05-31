@@ -567,7 +567,7 @@ func (c *ManagedChannel) GetNextDeletionTime() (deadline time.Time) {
 	}
 
 	if c.MaxMessages > 0 && len(c.liveMessages) > c.MaxMessages {
-		ts := c.liveMessages[c.MaxMessages-1].PostedAt
+		ts := c.liveMessages[c.MaxMessages].PostedAt
 		if ts.Before(c.minNextDelete) {
 			return c.minNextDelete
 		}
