@@ -76,6 +76,7 @@ Violations of the Acceptable Use Policy may be dealt with in one or more of the 
  - Refusal of service to any guilds a particular user operates or has moderation capabilities on.
  - Referral of incident details to Discord, law enforcement, or other competent authorities.
  - Cooperating with investigations by Discord, law enforcement, or other competent authorities.
+ - Requiring you to indemnify the Operator from damages caused by your use of the Service. (In plain language: I'm not responsible for things that you do with the bot, and you can be forced to say so in court.)
 
 While the above list of remedies is generally ordered by severity, the Operator has no obligation to respect the ordering of the list, to enact any specific remedy, or to take action against any specific violation. Lack of action in response to a violation is not a waiver against future remedial action (in particular, note limited investigational capacity).
 
