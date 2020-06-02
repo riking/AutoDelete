@@ -62,7 +62,7 @@ The bot may not be used to perform or to assist with any of the following action
  - improperly use support channels to make false reports;
  - engage in conduct that is fraudulent or illegal;
  - stalk, threaten, harass, or improperly publish the personal information of ("doxx") any person;
- - generally, to cover up or hide any violation of the Discord Terms of Service;
+ - generally, to cover up, hide, or perform any violation of the Discord Terms of Service;
  - to cause the bot to violate the Discord Terms of Service if it would not have violated those terms without your actions;
  - strain the technical infrastructure of the bot with an unreasonable volume or rate of requests, or requests designed to create an unreasonable load, except with explicit permission to conduct a specific technical or security test;
  - any use of the bot in a role where malfunction, improper operation, or normal operation of the bot could cause damages that exceed the greater of (a) $100 US Dollars or (b) the amount you have paid to the Operator of the bot;
