@@ -61,12 +61,10 @@ The bot may not be used to perform or to assist with any of the following action
 
  - improperly use support channels to make false reports;
  - engage in conduct that is fraudulent or illegal;
- - stalk, threaten, harass, or improperly publish the personal information of ("doxx") any person;
  - generally, to cover up, hide, or perform any violation of the Discord Terms of Service;
  - to cause the bot to violate the Discord Terms of Service if it would not have violated those terms without your actions;
  - strain the technical infrastructure of the bot with an unreasonable volume or rate of requests, or requests designed to create an unreasonable load, except with explicit permission to conduct a specific technical or security test;
  - any use of the bot in a role where malfunction, improper operation, or normal operation of the bot could cause damages that exceed the greater of (a) $100 US Dollars or (b) the amount you have paid to the Operator of the bot;
- - any other use deemed objectionable by the Operator, in its sole or delegated judgement. (In other words, this list is not exhaustive.)
 
 Violations of the Acceptable Use Policy may be dealt with in one or more of the following manners:
 
@@ -76,9 +74,10 @@ Violations of the Acceptable Use Policy may be dealt with in one or more of the 
  - Refusal of service to any guilds a particular user operates or has moderation capabilities on.
  - Referral of incident details to Discord, law enforcement, or other competent authorities.
  - Cooperating with investigations by Discord, law enforcement, or other competent authorities.
- - Requiring you to indemnify the Operator from damages caused by your use of the Service. (In plain language: I'm not responsible for things that you do with the bot, and you can be forced to say so in court.)
 
 While the above list of remedies is generally ordered by severity, the Operator has no obligation to respect the ordering of the list, to enact any specific remedy, or to take action against any specific violation. Lack of action in response to a violation is not a waiver against future remedial action (in particular, note limited investigational capacity).
+
+If you cannot comply with the Acceptable Use Policy, you must download the code of the bot and run it on your own infrastructure, accepting all responsibility for your actions.
 
 ### Limitation of Liability
 
