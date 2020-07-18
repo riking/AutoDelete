@@ -1,6 +1,6 @@
 # AutoDelete
 
-### _cleaning up over 12000 channels since 2017_
+### _retenion policies for 'gamers'_
 
 **AutoDelete** is a Discord bot that will automatically delete messages from a designated channel.
 
