@@ -35,6 +35,26 @@ For a quick reminder of these rules, just say `@AutoDelete help`.
 
 If you need extra help, say `@AutoDelete adminhelp ... message ...` to send a message to the support guild.
 
+## DockerFile
+
+For self hosting convience, i have included a dockerfile to build off of.
+
+In order for the docker container to work you will need mount the following items into the container
+
+/path/to/storage/config.yml:/autodelete/config.yml
+/path/to/storage/data/:/autodelete/data/
+
+To run the container locally you should run it like this
+
+```
+docker run -d -p 2202:2202/tcp \
+ --name Autodelete \
+ -v /opt/AutoDelete/config.yml:/autodelete/config.yml \
+ -v /opt/AutoDelete/data/:/autodelete/data/ \
+ --restart=always \
+ jacoknapp/autodelete-discord:latest
+```
+
 ## Policy
 
 The following two sections apply only to the hosted, community instance that can be invited to your server at the link above, as well as the help server and this GitHub repository.
