@@ -35,16 +35,22 @@ For a quick reminder of these rules, just say `@AutoDelete help`.
 
 If you need extra help, say `@AutoDelete adminhelp ... message ...` to send a message to the support guild.
 
-## DockerFile
+## Docker
 
-For self hosting convience, i have included a dockerfile to build off of.
+How to build the docker containers:
 
-In order for the docker container to work you will need mount the following items into the container
+```
+docker build -t name/of/image:tag .
+```
+
+Pre-built docker containers do exist on https://hub.docker.com/ but are not officially supported by myself. If you choose to use a pre-built image please contact the owner of the repository for support.
+
+Required Mounts: 
 
 /path/to/storage/config.yml:/autodelete/config.yml
 /path/to/storage/data/:/autodelete/data/
 
-To run the container locally you should run it like this
+Example:
 
 ```
 docker run -d -p 2202:2202/tcp \
@@ -52,7 +58,7 @@ docker run -d -p 2202:2202/tcp \
  -v /opt/AutoDelete/config.yml:/autodelete/config.yml \
  -v /opt/AutoDelete/data/:/autodelete/data/ \
  --restart=always \
- jacoknapp/autodelete-discord:latest
+ name/of/image:tag
 ```
 
 ## Policy
