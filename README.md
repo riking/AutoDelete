@@ -7,7 +7,7 @@ This discord bot does rolling deletes of messages. The deletion is based off of 
 ## Tag Information
 
 latest - This will be the most update to date working build.  
-test - This is an automated amd64 build, it will container the latest version of the golang docker container, and bot code. Not always guaranteed to work.  
+test - This is an automated amd64 build. It will contain the lastest version of goland, and my current working branch.
 version tags - These are snapshot builds, they are generically bug free and will never change. 
 
 ## Required Mounts
