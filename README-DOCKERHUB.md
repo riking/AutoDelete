@@ -35,7 +35,7 @@ statusmessage: "in the garbage" // you can change this to be the status of your 
 
 ### /path/to/storage/data/:/autodelete/data/
 
-This storage location is required to keep the channel, message and other persistent information inside. 
+This storage location is required to keep the channel, message and other persistent information. 
 
 
 ## Docker Run Example:
