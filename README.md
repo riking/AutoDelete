@@ -1,6 +1,6 @@
 # AutoDelete Discord bot
 
-Docker Container for self hosting Rikings AutoDelete discord bot. For more information about the discord bot please go to Riking's github:  https://github.com/riking/AutoDelete 
+Docker Container for self hosting Rikings' AutoDelete discord bot. For more information about the discord bot please go to Rikings' github:  https://github.com/riking/AutoDelete 
 
 This discord bot does rolling deletes of messages. The deletion is based off of how many messages you would like to keep in a given window, or how long you would like to keep the messages. This docker container is not supported by Riking, but rather supported by jacoknapp. If you find an issue that is container related (rather than application related) please drop an issue into the github repository. and I will do my best to resolve it. 
 
