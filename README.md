@@ -10,7 +10,7 @@ latest - This will be the most update to date working build.
 test - This is an automated amd64 build, it will container the latest version of the golang docker container, and bot code. Not always guaranteed to work.  
 version tags - These are snapshot builds, they are generically bug free and will never change. 
 
-## Required Mounts: 
+## Required Mounts
 
 
 ### /path/to/storage/config.yml:/autodelete/config.yml
@@ -38,7 +38,7 @@ statusmessage: "in the garbage" // you can change this to be the status of your 
 This storage location is required to keep the channel, message and other persistent information. 
 
 
-## Docker Run Example:
+## Docker Run Example
 
 ```
 docker run -d -p 2202:2202/tcp \
