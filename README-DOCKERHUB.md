@@ -17,7 +17,7 @@ version tags - These are snapshot builds, they are generically bug free and will
 
 Download the example config [here](https://raw.githubusercontent.com/riking/AutoDelete/master/config.example.yml). 
 
-This contains the configuration file required to run the bot. See the github for more information about what should go into the config file. You will need to create a developer discord bot in the discord portal located: [here](http://discordapp.com/developers/applications/me).
+This contains the configuration file required to run the bot. See the github for more information about what should go into the config file. You will need to create a developer discord bot in the discord portal located: [here](http://discordapp.com/developers/applications/me). The bot requires read, send and manage message permissions in order to work.
 
 ```
 clientid: "****************"  //client id that you get from the discord bot site
