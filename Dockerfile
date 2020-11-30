@@ -1,6 +1,6 @@
 FROM golang:latest
 
-RUN apt update -y && apt upgrade -y && \ 
+RUN apt update -y --allow-insecure-repositories && apt upgrade -y && \ 
   apt install -y git && \
   apt -y clean && \
   go get -u -v github.com/riking/AutoDelete/cmd/autodelete
