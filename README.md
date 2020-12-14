@@ -35,20 +35,28 @@ For a quick reminder of these rules, just say `@AutoDelete help`.
 
 If you need extra help, say `@AutoDelete adminhelp ... message ...` to send a message to the support guild.
 
-## Docker
+## Deployment
+
+### Custom
+
+See the [docs](./docs) directory for setup scripts and the configuration files that run the official bot instance.
+
+### Docker
 
 How to build the docker containers:
 
 ```
-docker build -t name/of/image:tag .
+docker build -t myimages/autodelete:tag .
 ```
 
-Pre-built docker containers do exist on https://hub.docker.com/ but are not officially supported by myself. If you choose to use a pre-built image please contact the owner of the repository for support.
+Pre-built docker containers have been uploaded by the community to https://hub.docker.com/ if you wish to use them. These image owners should also be contactable over the support Discord server.
 
 Required Mounts: 
 
+```
 /path/to/storage/config.yml:/autodelete/config.yml
 /path/to/storage/data/:/autodelete/data/
+```
 
 Example:
 
@@ -58,7 +66,7 @@ docker run -d -p 2202:2202/tcp \
  -v /opt/AutoDelete/config.yml:/autodelete/config.yml \
  -v /opt/AutoDelete/data/:/autodelete/data/ \
  --restart=always \
- name/of/image:tag
+ myimages/autodelete:tag
 ```
 
 ## Policy
