@@ -7,12 +7,16 @@ rule_files: []
 scrape_configs:
     - job_name: autodelete
       static_configs:
-        - targets: ["127.0.0.4:6136"]
-          labels: {"shard": "6"}
-        - targets: ["127.0.0.4:6137"]
-          labels: {"shard": "7"}
-        - targets: ["127.0.0.4:6138"]
-          labels: {"shard": "8"}
-        - targets: ["127.0.0.4:6139"]
-          labels: {"shard": "9"}
+        - targets: ["127.0.0.4:6140"]
+          labels: {"shard": "10"}
+        - targets: ["127.0.0.4:6141"]
+          labels: {"shard": "11"}
+        - targets: ["127.0.0.4:6142"]
+          labels: {"shard": "12"}
+        - targets: ["127.0.0.4:6143"]
+          labels: {"shard": "13"}
+        - targets: ["127.0.0.4:6144"]
+          labels: {"shard": "14"}
+        - targets: ["127.0.0.4:6145"]
+          labels: {"shard": "15"}
 
