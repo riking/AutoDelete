@@ -10,7 +10,7 @@ go version || echo "https://golang.org/dl/"
 
 go get -u -v github.com/riking/AutoDelete/cmd/autodelete
 
-# Create a data folder
+# Create a folder to house the config and data
 
 FOLDER=$HOME/autodelete
 mkdir -p "$FOLDER" ; cd "$FOLDER"
@@ -31,5 +31,11 @@ editor config.yml
 
 # Run
 
+tmux new-session -s autodelete
 ./autodelete
 
+# Press {Ctrl-A} {D}
+logout
+
+# Later:
+tmux attach -t autodelete
