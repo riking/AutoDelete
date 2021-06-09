@@ -169,7 +169,7 @@ func (b *Bot) OnGuildRemove(s *discordgo.Session, ev *discordgo.GuildDelete) {
 		b.mu.RLock()
 		defer b.mu.RUnlock()
 		for _, mCh := range b.channels {
-			if mCh.GuildID == guildID {
+			if mCh != nil && mCh.GuildID == guildID {
 				toRemove = append(toRemove, mCh)
 			}
 		}
