@@ -158,11 +158,29 @@ func (b *Bot) OnChannelDelete(s *discordgo.Session, ev *discordgo.ChannelDelete)
 	}
 
 	mCh.Disable()
+	b.deleteChannelConfig(mCh.ChannelID)
 }
 
 func (b *Bot) OnGuildRemove(s *discordgo.Session, ev *discordgo.GuildDelete) {
-	// TODO
-	fmt.Println("[todo] Got GuildDelete for id", ev.ID)
+	guildID := ev.ID
+
+	var toRemove []*ManagedChannel
+	(func() {
+		b.mu.RLock()
+		defer b.mu.RUnlock()
+		for _, mCh := range b.channels {
+			if mCh.GuildID == guildID {
+				toRemove = append(toRemove, mCh)
+			}
+		}
+
+	})()
+
+	for _, mCh := range toRemove {
+		mCh.Disable()
+		b.deleteChannelConfig(mCh.ChannelID)
+	}
+	fmt.Printf("[LOG] Removed %v channels from guild %v\n", len(toRemove), guildID)
 }
 
 func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdate) {
