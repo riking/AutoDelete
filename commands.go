@@ -212,6 +212,10 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		b.s.ChannelMessageSend(m.ChannelID, "Bad format for `set` command. Provide a count (20) and/or a duration (90m) to purge messages after. Maximum unit is hours.")
 		return
 	}
+	if duration < 0 || count < 0 {
+		b.s.ChannelMessageSend(m.ChannelID, "Count and/or duration cannot be negative.")
+		return
+	}
 
 	var confMessage *discordgo.Message
 	doNotReload := false

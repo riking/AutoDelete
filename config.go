@@ -95,6 +95,8 @@ type ManagedChannelMarshal struct {
 	KeepMessages  []string `yaml:"keep_messages"`
 }
 
+var errNegativeConfigValues = fmt.Errorf("negative configuration values")
+
 func internalMigrateConfig(c ManagedChannelMarshal) ManagedChannelMarshal {
 	if c.ConfMessageID != "" {
 		c.KeepMessages = []string{c.ConfMessageID}
@@ -182,6 +184,11 @@ func (b *Bot) setChannelConfig(conf ManagedChannelMarshal) error {
 }
 
 func (b *Bot) handleCriticalPermissionsErrors(channelID string, srcErr error) bool {
+	if srcErr == errNegativeConfigValues {
+		fmt.Printf("[LOG] Disabled due to negative config values in %s\n", channelID)
+		return true
+	}
+
 	if rErr, ok := srcErr.(*discordgo.RESTError); ok && rErr != nil && rErr.Message != nil {
 		shouldRemoveChannel := false
 		shouldNotifyChannel := false
@@ -341,6 +348,25 @@ func (b *Bot) loadChannel(channelID string, qos LoadQOS) error {
 	}
 
 	conf.ID = channelID
+
+	if conf.LiveTime < 0 || conf.MaxMessages < 0 {
+		// Migration: disallow negative configurations
+		err = b.storage.DeleteChannel(channelID)
+		if err != nil {
+			return err
+		}
+
+		absMessages := conf.MaxMessages
+		if absMessages < 0 {
+			absMessages = -absMessages
+		}
+		absDuration := conf.LiveTime
+		if absDuration < 0 {
+			absDuration = -absDuration
+		}
+		b.s.ChannelMessageSend(channelID, fmt.Sprintf(":warning: AutoDelete is now disabled in this channel due to corrupt configuration: negative values were found. It must be re-enabled manually.\nFound configuration: duration %v, messages %d\nAn administrator can fix this by typing the following command:\n`@%s#%s setup %v %d`", conf.LiveTime, conf.MaxMessages, b.me.Username, b.me.Discriminator, absDuration, absMessages))
+		return errNegativeConfigValues
+	}
 
 	mCh, err := InitChannel(b, conf)
 	if err != nil {
