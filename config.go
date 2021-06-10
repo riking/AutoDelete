@@ -349,6 +349,10 @@ func (b *Bot) loadChannel(channelID string, qos LoadQOS) error {
 
 	conf.ID = channelID
 
+	if conf.MaxMessages == -1 && conf.LiveTime != 0 {
+		// Migration: disallow negative configurations, but treat -1 as 0
+		conf.MaxMessages = 0
+	}
 	if conf.LiveTime < 0 || conf.MaxMessages < 0 {
 		// Migration: disallow negative configurations
 		err = b.storage.DeleteChannel(channelID)
