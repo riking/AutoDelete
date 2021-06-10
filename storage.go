@@ -19,7 +19,7 @@ type Storage interface {
 	DeleteChannel(id string) error
 
 	IsBanned(guildID string) (bool, error)
-	AddBan(guildID string) (error)
+	AddBan(guildID string) error
 }
 
 /******************
@@ -126,6 +126,6 @@ func (s *DiskStorage) IsBanned(guildID string) (bool, error) {
 	return false, nil
 }
 
-func (s *DiskStorage) AddBan(guildID string) (error) {
+func (s *DiskStorage) AddBan(guildID string) error {
 	return fmt.Errorf("unimplemented!")
 }

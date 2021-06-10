@@ -235,6 +235,7 @@ func (b *Bot) Channel(channelID string) (*discordgo.Channel, error) {
 
 const useRatelimitWorkaround = true
 const useAlternateRatelimiter = false
+
 var alternateRL = discordgo.NewRatelimiter()
 
 func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
@@ -600,6 +601,11 @@ func (c *ManagedChannel) Reap(msgs []string) (int, error) {
 	mTopDeletionChannels.WithLabelValues(c.ChannelID).Observe(float64(len(msgs)))
 	mTopDeletionGuilds.WithLabelValues(c.GuildID).Observe(float64(len(msgs)))
 
+	if len(msgs) == 0 {
+		// All messages were deleted by other bots first
+		return 0, nil
+	}
+
 nobulk:
 	switch {
 	case true:
@@ -616,7 +622,7 @@ nobulk:
 			} else if tErr, ok := err.(isTemporary); ok && tErr.Temporary() {
 				// Temporary error, try again
 				mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
-				time.Sleep(50*time.Millisecond)
+				time.Sleep(50 * time.Millisecond)
 				continue
 			} else if err != nil {
 				mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
@@ -639,7 +645,7 @@ nobulk:
 			} else if tErr, ok := err.(isTemporary); ok && tErr.Temporary() {
 				// Temporary error, try again
 				mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()
-				time.Sleep(50*time.Millisecond)
+				time.Sleep(50 * time.Millisecond)
 				continue
 			} else if err != nil {
 				mReapErrors.With(prometheus.Labels{"error_code": fmt.Sprintf("other(%T)", err)}).Inc()

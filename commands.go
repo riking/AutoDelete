@@ -165,7 +165,7 @@ func CommandCheck(b *Bot, m *discordgo.Message, rest []string) {
 	}
 
 	if len(keeps) > 1 {
-		fmt.Fprintf(&msg, " I am aware of %d pinned messages.", len(keeps) - 1)
+		fmt.Fprintf(&msg, " I am aware of %d pinned messages.", len(keeps)-1)
 	}
 
 	b.s.ChannelMessageSend(m.ChannelID, msg.String())
