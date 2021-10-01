@@ -172,13 +172,15 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 			// return
 		}
 
+		if rl.RetryAfter == 0 {
+			rl.RetryAfter = 1 * time.Second
+		}
+
 		// Exponential backoff with hard minimum
 		for i := 0; i <= ratelimitSequence; i++ {
 			rl.RetryAfter += time.Duration(rand.Int63n(int64(rl.RetryAfter)))
 		}
-		if rl.RetryAfter == 0 {
-			rl.RetryAfter = 1 * time.Second
-		} else if rl.RetryAfter < 500*time.Millisecond {
+		if rl.RetryAfter < 500*time.Millisecond {
 			rl.RetryAfter += 500 * time.Millisecond
 		}
 		fmt.Printf("Rate Limiting %s, retry in %v\n", urlStr, rl)
