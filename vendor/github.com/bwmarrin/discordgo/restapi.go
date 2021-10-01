@@ -157,6 +157,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 			// return
 		}
 		fmt.Printf("Rate Limiting %s, retry in %v\n", urlStr, rl)
+		rl.RetryAfter += rl.RetryAfter / 2
 		if rl.RetryAfter == 0 {
 			rl.RetryAfter = 2 * time.Second
 		}
