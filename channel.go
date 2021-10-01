@@ -263,7 +263,7 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 		var err error
 		if useAlternateRatelimiter {
 			// the string "//reactions//" gets a special ratelimit applied
-			body, err = c.bot.s.RequestWithLockedBucket("GET", discordgo.EndpointChannelMessagesPins(c.ChannelID), "application/json", nil, alternateRL.LockBucket(fmt.Sprintf("/custom/pins/%s//reactions//x", c.ChannelID)), 0)
+			body, err = c.bot.s.RequestWithLockedBucket("GET", discordgo.EndpointChannelMessagesPins(c.ChannelID), "application/json", nil, alternateRL.LockBucket(fmt.Sprintf("/custom/pins/%s//reactions//x", c.ChannelID)), 0, 0)
 		} else {
 			body, err = c.bot.s.RequestWithBucketID("GET", discordgo.EndpointChannelMessagesPins(c.ChannelID), nil, "/custom/pinsGlobal")
 		}
