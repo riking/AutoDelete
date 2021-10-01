@@ -3,7 +3,7 @@ module github.com/riking/AutoDelete
 go 1.13
 
 require (
-	github.com/bwmarrin/discordgo v0.20.2
+	github.com/bwmarrin/discordgo v0.23.2
 	github.com/dgryski/go-sip13 v0.0.0-20190329191031-25c5027a8c7b
 	github.com/golang/protobuf v1.3.2
 	github.com/gorilla/websocket v1.4.0
@@ -18,5 +18,3 @@ require (
 	google.golang.org/appengine v1.5.0
 	gopkg.in/yaml.v2 v2.2.5
 )
-
-replace github.com/bwmarrin/discordgo => ./vendor/github.com/bwmarrin/discordgo

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/cookiejar"
+	"runtime"
 	"strings"
 	"time"
 
@@ -38,6 +39,18 @@ func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 	state.MaxMessageCount = 0
 	s.State = state
 
+	s.Identify.Compress = true
+	s.Identify.Properties.OS = runtime.GOOS
+	s.Identify.Properties.Browser = "github.com/riking/AutoDelete"
+	s.Identify.Properties.Device = "github.com/riking/AutoDelete"
+	if b.Config.StatusMessage != nil {
+		s.Identify.Presence.Game.Name = *b.Config.StatusMessage
+		s.Identify.Presence.Game.Type = discordgo.ActivityTypeGame
+	}
+	s.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages |
+		discordgo.IntentsGuildMessageReactions | discordgo.IntentsDirectMessages |
+		discordgo.IntentsDirectMessageReactions
+
 	// Configure the HTTP client
 	s.UserAgent = userAgent
 	runtimeCookieJar, err := cookiejar.New(nil)
@@ -59,9 +72,9 @@ func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 	if !(shardCount == 0 && gb.Shards == 1) && (int(float64(shardCount)*2.5) < gb.Shards) {
 		return errors.Errorf("need to increase shard count: have %d, want %d", shardCount, gb.Shards)
 	}
-
-	s.ShardID = shardID
-	s.ShardCount = shardCount
+	if shardCount != 0 {
+		s.Identify.Shard = &[2]int{shardID, shardCount}
+	}
 
 	// Add event handlers
 	s.AddHandler(b.OnReady)
@@ -211,13 +224,6 @@ func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdat
 
 func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
 	b.ReportToLogChannel("AutoDelete started.")
-	if b.Config.StatusMessage != nil {
-		err := s.UpdateStatus(0, *b.Config.StatusMessage)
-		if err != nil {
-			fmt.Println("error setting game:", err)
-		}
-	}
-
 	go func() {
 		err := b.LoadChannelConfigs()
 		if err != nil {
@@ -232,5 +238,4 @@ func (b *Bot) OnResume(s *discordgo.Session, r *discordgo.Resumed) {
 		time.Sleep(3 * time.Second)
 		b.LoadAllBacklogs()
 	}()
-	go s.UpdateStatus(0, "in the garbage")
 }
