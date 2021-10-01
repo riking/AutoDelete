@@ -36,7 +36,7 @@ func New(c Config) *Bot {
 		donorRoles:  makeSet(c.DonorRoleIDs),
 		channels:    make(map[string]*ManagedChannel),
 		reaper:      newReapQueue(4, queueReap),
-		loadRetries: newReapQueue(30, queueLoad),
+		loadRetries: newReapQueue(12, queueLoad),
 	}
 	prometheus.MustRegister(reapqCollector{[]*reapQueue{b.reaper, b.loadRetries}})
 	go reapScheduler(b.reaper, b.reapWorker)
