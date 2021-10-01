@@ -6,7 +6,7 @@ require (
 	github.com/bwmarrin/discordgo v0.23.2
 	github.com/dgryski/go-sip13 v0.0.0-20190329191031-25c5027a8c7b
 	github.com/golang/protobuf v1.3.2 // indirect
-	github.com/gorilla/websocket v1.4.0 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.4.1
 	github.com/prometheus/client_model v0.2.0
