@@ -59,6 +59,20 @@ func (s *Session) RequestWithBucketID(method, urlStr string, data interface{}, b
 	return s.request(method, urlStr, "application/json", body, bucketID, 0)
 }
 
+var globalRatelimit = make(chan struct{}, 3)
+
+func init() {
+	const shardCount = 16
+	const maxRequestInterval = 50 * time.Second / shardCount
+
+	go func(ch chan struct{}, d time.Duration) {
+		for {
+			ch <- struct{}{}
+			time.Sleep(d)
+		}
+	}(globalRatelimit, maxRequestInterval)
+}
+
 // request makes a (GET/POST/...) Requests to Discord REST API.
 // Sequence is the sequence number, if it fails with a 502 it will
 // retry with sequence+1 until it either succeeds or sequence >= session.MaxRestRetries
@@ -66,6 +80,7 @@ func (s *Session) request(method, urlStr, contentType string, b []byte, bucketID
 	if bucketID == "" {
 		bucketID = strings.SplitN(urlStr, "?", 2)[0]
 	}
+	<-globalRatelimit
 	return s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucket(bucketID), sequence)
 }
 
@@ -143,6 +158,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		if sequence < s.MaxRestRetries {
 
 			s.log(LogInformational, "%s Failed (%s), Retrying...", urlStr, resp.Status)
+			<-globalRatelimit
 			response, err = s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucketObject(bucket), sequence+1)
 		} else {
 			err = fmt.Errorf("Exceeded Max retries HTTP %s, %s", resp.Status, response)
@@ -170,6 +186,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		// we can make the above smarter
 		// this method can cause longer delays than required
 
+		<-globalRatelimit
 		response, err = s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucketObject(bucket), sequence)
 	case http.StatusUnauthorized:
 		if strings.Index(s.Token, "Bot ") != 0 {
