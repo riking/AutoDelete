@@ -18,3 +18,5 @@ require (
 	google.golang.org/appengine v1.5.0 // indirect
 	gopkg.in/yaml.v2 v2.2.5
 )
+
+replace github.com/bwmarrin/discordgo => ./vendor/github.com/bwmarrin/discordgo
