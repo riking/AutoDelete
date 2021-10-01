@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand" // For retries
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -81,11 +82,11 @@ func (s *Session) request(method, urlStr, contentType string, b []byte, bucketID
 		bucketID = strings.SplitN(urlStr, "?", 2)[0]
 	}
 	<-globalRatelimit
-	return s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucket(bucketID), sequence)
+	return s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucket(bucketID), sequence, 0)
 }
 
 // RequestWithLockedBucket makes a request using a bucket that's already been locked
-func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b []byte, bucket *Bucket, sequence int) (response []byte, err error) {
+func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b []byte, bucket *Bucket, sequence, ratelimitSequence int) (response []byte, err error) {
 	if s.Debug {
 		log.Printf("API REQUEST %8s :: %s\n", method, urlStr)
 		log.Printf("API REQUEST  PAYLOAD :: [%s]\n", string(b))
@@ -159,7 +160,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 
 			s.log(LogInformational, "%s Failed (%s), Retrying...", urlStr, resp.Status)
 			<-globalRatelimit
-			response, err = s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucketObject(bucket), sequence+1)
+			response, err = s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucketObject(bucket), sequence+1, ratelimitSequence+1)
 		} else {
 			err = fmt.Errorf("Exceeded Max retries HTTP %s, %s", resp.Status, response)
 		}
@@ -168,17 +169,19 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		err = json.Unmarshal(response, &rl)
 		if err != nil {
 			s.log(LogError, "rate limit unmarshal error, %s", err)
-			fmt.Println("non JSON 429:", response)
-			rl.RetryAfter = time.Millisecond * 1500
 			// return
 		}
-		fmt.Printf("Rate Limiting %s, retry in %v\n", urlStr, rl)
-		rl.RetryAfter += rl.RetryAfter / 2
+
+		// Exponential backoff with hard minimum
+		for i := 0; i <= ratelimitSequence; i++ {
+			rl.RetryAfter += time.Duration(rand.Int63n(int64(rl.RetryAfter)))
+		}
 		if rl.RetryAfter == 0 {
-			rl.RetryAfter = 2 * time.Second
+			rl.RetryAfter = 1 * time.Second
 		} else if rl.RetryAfter < 500*time.Millisecond {
 			rl.RetryAfter += 500 * time.Millisecond
 		}
+		fmt.Printf("Rate Limiting %s, retry in %v\n", urlStr, rl)
 		s.log(LogInformational, "Rate Limiting %s, retry in %v", urlStr, rl.RetryAfter)
 		s.handleEvent(rateLimitEventType, &RateLimit{TooManyRequests: &rl, URL: urlStr})
 
@@ -187,7 +190,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		// this method can cause longer delays than required
 
 		<-globalRatelimit
-		response, err = s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucketObject(bucket), sequence)
+		response, err = s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucketObject(bucket), sequence, ratelimitSequence+1)
 	case http.StatusUnauthorized:
 		if strings.Index(s.Token, "Bot ") != 0 {
 			s.log(LogInformational, ErrUnauthorized.Error())
