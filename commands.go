@@ -55,6 +55,9 @@ func CommandAdminHelp(b *Bot, m *discordgo.Message, rest []string) {
 }
 
 func CommandAdminSay(b *Bot, m *discordgo.Message, rest []string) {
+	if len(rest) == 0 {
+		return
+	}
 	channelID := rest[0]
 
 	if m.Author.ID != b.Config.AdminUser {
