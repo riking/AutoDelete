@@ -75,6 +75,8 @@ func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 	if shardCount != 0 {
 		s.Identify.Shard = &[2]int{shardID, shardCount}
 	}
+	s.ShardID = shardID
+	s.ShardCount = shardCount
 
 	// Add event handlers
 	s.AddHandler(b.OnReady)
