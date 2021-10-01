@@ -156,6 +156,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 			rl.RetryAfter = time.Millisecond * 1500
 			// return
 		}
+		fmt.Printf("Rate Limiting %s, retry in %v\n", urlStr, rl.RetryAfter)
 		s.log(LogInformational, "Rate Limiting %s, retry in %v", urlStr, rl.RetryAfter)
 		s.handleEvent(rateLimitEventType, &RateLimit{TooManyRequests: &rl, URL: urlStr})
 
