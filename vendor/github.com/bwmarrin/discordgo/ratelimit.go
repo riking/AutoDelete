@@ -193,8 +193,5 @@ func (b *Bucket) Release(headers http.Header) error {
 		b.Remaining = int(parsedRemaining)
 	}
 
-	// Global ratelimit compensation (20ms / request)
-	time.Sleep(25 * time.Millisecond)
-
 	return nil
 }

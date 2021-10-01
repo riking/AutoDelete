@@ -63,7 +63,7 @@ var globalRatelimit = make(chan struct{}, 3)
 
 func init() {
 	const shardCount = 16
-	const maxRequestInterval = 50 * time.Second / shardCount
+	const maxRequestInterval = time.Second * shardCount / 50
 
 	go func(ch chan struct{}, d time.Duration) {
 		for {
