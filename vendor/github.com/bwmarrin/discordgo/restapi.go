@@ -152,7 +152,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		err = json.Unmarshal(response, &rl)
 		if err != nil {
 			s.log(LogError, "rate limit unmarshal error, %s", err)
-			rl.RetryAfter = 1500
+			rl.RetryAfter = time.Millisecond * 1500
 			// return
 		}
 		s.log(LogInformational, "Rate Limiting %s, retry in %v", urlStr, rl.RetryAfter)
