@@ -59,7 +59,7 @@ func (s *Session) RequestWithBucketID(method, urlStr string, data interface{}, b
 	return s.request(method, urlStr, "application/json", body, bucketID, 0)
 }
 
-var globalRatelimit = make(chan struct{}, 3)
+var globalRatelimit = make(chan struct{}, 25)
 
 func init() {
 	const shardCount = 16
