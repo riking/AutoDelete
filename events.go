@@ -64,13 +64,15 @@ func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 		Transport: transport,
 	}
 
-	gb, err := s.GatewayBot()
-	if err != nil {
-		return err
-	}
-	fmt.Println("shard count recommendation: ", gb.Shards)
-	if !(shardCount == 0 && gb.Shards == 1) && (int(float64(shardCount)*2.5) < gb.Shards) {
-		return errors.Errorf("need to increase shard count: have %d, want %d", shardCount, gb.Shards)
+	if shardID == 0 {
+		gb, err := s.GatewayBot()
+		if err != nil {
+			return err
+		}
+		fmt.Println("shard count recommendation: ", gb.Shards)
+		if !(shardCount == 0 && gb.Shards == 1) && (int(float64(shardCount)*2.5) < gb.Shards) {
+			return errors.Errorf("need to increase shard count: have %d, want %d", shardCount, gb.Shards)
+		}
 	}
 	if shardCount != 0 {
 		s.Identify.Shard = &[2]int{shardID, shardCount}
