@@ -90,6 +90,7 @@ func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 	s.AddHandler(b.OnMessage)
 	me, err := s.User("@me")
 	if err != nil {
+		fmt.Println("get me:", err)
 		return errors.Wrap(err, "get me")
 	}
 	b.me = me

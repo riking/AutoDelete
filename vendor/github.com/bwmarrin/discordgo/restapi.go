@@ -92,8 +92,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		log.Printf("API REQUEST  PAYLOAD :: [%s]\n", string(b))
 	}
 
-	minRetryDelay := 0 * time.Millisecond
-	var instructedRetryDelay time.Duration
+	var instructedRetryDelay, minRetryDelay time.Duration = 0, 0
 	retry:
 	for {
 		// Exponential backoff without blowing the stack
@@ -206,7 +205,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 			rl.RetryAfter = 1 * time.Second
 		}
 
-		s.log(LogInformational, "Rate Limiting %s, retry in %v", urlStr, rl.RetryAfter)
+		//s.log(LogInformational, "Rate Limiting %s, retry in %v", urlStr, rl.RetryAfter)
 		s.handleEvent(rateLimitEventType, &RateLimit{TooManyRequests: &rl, URL: urlStr})
 
 		instructedRetryDelay = rl.RetryAfter
