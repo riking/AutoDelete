@@ -121,6 +121,9 @@ func (b *Bot) HandleMentions(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 	split := strings.Fields(m.Message.Content)
+	if len(split) == 0 {
+		return
+	}
 	plainMention := "<@" + b.me.ID + ">"
 	nickMention := "<@!" + b.me.ID + ">"
 
