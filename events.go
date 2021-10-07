@@ -231,7 +231,7 @@ func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdat
 }
 
 func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
-	b.ReportToLogChannel(fmt.Sprintf("AutoDelete started (%d/%d).", b.ShardID, b.ShardCount))
+	b.ReportToLogChannel(fmt.Sprintf("AutoDelete started (%d/%d).", b.s.ShardID, b.s.ShardCount))
 	go func() {
 		err := b.LoadChannelConfigs()
 		if err != nil {
@@ -242,12 +242,12 @@ func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {
 
 func (b *Bot) OnResume(s *discordgo.Session, r *discordgo.Resumed) {
 	// force ratelimit of reconnects?
-	_, _ := s.User("@me")
+	_, _ = s.User("@me")
 
 	if r.Trace != nil {
-		b.ReportToLogChannel(fmt.Sprintf("AutoDelete successfully reconnected (%d/%d) with trace data.\n%s", b.ShardID, b.ShardCount, strings.Join(r.Trace, "\n")))
+		b.ReportToLogChannel(fmt.Sprintf("AutoDelete successfully reconnected (%d/%d) with trace data.\n%s", b.s.ShardID, b.s.ShardCount, strings.Join(r.Trace, "\n")))
 	} else {
-		b.ReportToLogChannel(fmt.Sprintf("AutoDelete successfully reconnected (%d/%d).", b.ShardID, b.ShardCount))
+		b.ReportToLogChannel(fmt.Sprintf("AutoDelete successfully reconnected (%d/%d).", b.s.ShardID, b.s.ShardCount))
 	}
 	go func() {
 		time.Sleep(3 * time.Second)
