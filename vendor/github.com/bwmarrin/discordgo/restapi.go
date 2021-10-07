@@ -189,6 +189,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 
 			s.log(LogInformational, "%s Failed (%s), Retrying...", urlStr, resp.Status)
 			sequence += 1
+			s.Ratelimiter.LockBucketObject(bucket)
 			continue retry
 		} else {
 			err = fmt.Errorf("Exceeded Max retries HTTP %s, %s", resp.Status, response)
@@ -209,6 +210,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		s.handleEvent(rateLimitEventType, &RateLimit{TooManyRequests: &rl, URL: urlStr})
 
 		instructedRetryDelay = rl.RetryAfter
+		s.Ratelimiter.LockBucketObject(bucket)
 		continue retry
 	case http.StatusUnauthorized:
 		if strings.Index(s.Token, "Bot ") != 0 {
