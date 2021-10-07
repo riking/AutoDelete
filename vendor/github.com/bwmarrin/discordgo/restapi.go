@@ -81,21 +81,43 @@ func (s *Session) request(method, urlStr, contentType string, b []byte, bucketID
 	if bucketID == "" {
 		bucketID = strings.SplitN(urlStr, "?", 2)[0]
 	}
-	<-globalRatelimit
-	return s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucket(bucketID), sequence, 0)
+	return s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucket(bucketID), sequence)
 }
 
 // RequestWithLockedBucket makes a request using a bucket that's already been locked
-func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b []byte, bucket *Bucket, sequence, ratelimitSequence int) (response []byte, err error) {
+func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b []byte, bucket *Bucket, sequence int) (response []byte, err error) {
+
 	if s.Debug {
 		log.Printf("API REQUEST %8s :: %s\n", method, urlStr)
 		log.Printf("API REQUEST  PAYLOAD :: [%s]\n", string(b))
 	}
 
+	minRetryDelay := 0 * time.Millisecond
+	var instructedRetryDelay time.Duration
+	retry:
+	for {
+		// Exponential backoff without blowing the stack
+		if minRetryDelay > time.Duration(0) {
+			thisRetry := minRetryDelay + instructedRetryDelay + time.Duration(rand.Int63n(int64(minRetryDelay)))
+			fmt.Printf("Rate Limiting %s, retry in %v\n", urlStr, thisRetry)
+			time.Sleep(thisRetry)
+
+			instructedRetryDelay = 0
+			minRetryDelay *= 2
+			if minRetryDelay > 1*time.Hour {
+				minRetryDelay = 1*time.Hour
+				log.Printf("API Request retry reached 1 hour: %s %s\n", method, urlStr)
+			}
+		} else {
+			minRetryDelay = 250 * time.Millisecond
+		}
+		<-globalRatelimit
+		// END exponential backoff code
+
 	req, err := http.NewRequest(method, urlStr, bytes.NewBuffer(b))
 	if err != nil {
 		bucket.Release(nil)
-		return
+		return nil, err
 	}
 
 	// Not used on initial login..
@@ -122,23 +144,31 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 	resp, err := s.Client.Do(req)
 	if err != nil {
 		bucket.Release(nil)
-		return
+		return nil, err
 	}
-	defer func() {
+	/* defer func() {
 		err2 := resp.Body.Close()
 		if err2 != nil {
-			log.Println("error closing resp body")
+			log.Println("error closing resp body:", err2)
 		}
-	}()
+	}() */
 
 	err = bucket.Release(resp.Header)
 	if err != nil {
-		return
+		err2 := resp.Body.Close()
+		if err2 != nil {
+			log.Println("error closing resp body:", err2)
+		}
+		return nil, err
 	}
 
 	response, err = ioutil.ReadAll(resp.Body)
+	err2 := resp.Body.Close()
+	if err2 != nil {
+		log.Println("error closing resp body:", err2)
+	}
 	if err != nil {
-		return
+		return response, err
 	}
 
 	if s.Debug {
@@ -159,8 +189,8 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		if sequence < s.MaxRestRetries {
 
 			s.log(LogInformational, "%s Failed (%s), Retrying...", urlStr, resp.Status)
-			<-globalRatelimit
-			response, err = s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucketObject(bucket), sequence+1, ratelimitSequence+1)
+			sequence += 1
+			continue retry
 		} else {
 			err = fmt.Errorf("Exceeded Max retries HTTP %s, %s", resp.Status, response)
 		}
@@ -176,23 +206,11 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 			rl.RetryAfter = 1 * time.Second
 		}
 
-		// Exponential backoff with hard minimum
-		for i := 0; i <= ratelimitSequence; i++ {
-			rl.RetryAfter += time.Duration(rand.Int63n(int64(rl.RetryAfter)))
-		}
-		if rl.RetryAfter < 500*time.Millisecond {
-			rl.RetryAfter += 500 * time.Millisecond
-		}
-		fmt.Printf("Rate Limiting %s, retry in %v\n", urlStr, rl)
 		s.log(LogInformational, "Rate Limiting %s, retry in %v", urlStr, rl.RetryAfter)
 		s.handleEvent(rateLimitEventType, &RateLimit{TooManyRequests: &rl, URL: urlStr})
 
-		time.Sleep(rl.RetryAfter)
-		// we can make the above smarter
-		// this method can cause longer delays than required
-
-		<-globalRatelimit
-		response, err = s.RequestWithLockedBucket(method, urlStr, contentType, b, s.Ratelimiter.LockBucketObject(bucket), sequence, ratelimitSequence+1)
+		instructedRetryDelay = rl.RetryAfter
+		continue retry
 	case http.StatusUnauthorized:
 		if strings.Index(s.Token, "Bot ") != 0 {
 			s.log(LogInformational, ErrUnauthorized.Error())
@@ -203,7 +221,8 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		err = newRestError(req, resp, response)
 	}
 
-	return
+	return response, err
+	}
 }
 
 func unmarshal(data []byte, v interface{}) error {
