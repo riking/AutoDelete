@@ -46,7 +46,7 @@ type resumePacket struct {
 }
 
 // maximum 1000 connects per hour
-const websocketConnectWait = time.Hour / 1000 * 16 /*s.ShardCount*/
+const websocketConnectWait = time.Hour / 1000 * 22 /*s.ShardCount*/
 var connectPermission = make(chan struct{}, 1)
 
 func init() {

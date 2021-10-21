@@ -63,7 +63,7 @@ func (s *Session) RequestWithBucketID(method, urlStr string, data interface{}, b
 var globalRatelimit = make(chan struct{}, 25)
 
 func init() {
-	const shardCount = 16
+	const shardCount = 22
 	const maxRequestInterval = time.Second * shardCount / 50
 
 	go func(ch chan struct{}, d time.Duration) {
@@ -93,7 +93,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 	}
 
 	var instructedRetryDelay, minRetryDelay time.Duration = 0, 0
-	retry:
+retry:
 	for {
 		// Exponential backoff without blowing the stack
 		if minRetryDelay > time.Duration(0) {
@@ -104,7 +104,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 			instructedRetryDelay = 0
 			minRetryDelay *= 2
 			if minRetryDelay > 1*time.Hour {
-				minRetryDelay = 1*time.Hour
+				minRetryDelay = 1 * time.Hour
 				log.Printf("API Request retry reached 1 hour: %s %s\n", method, urlStr)
 			}
 		} else {
@@ -113,116 +113,116 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 		<-globalRatelimit
 		// END exponential backoff code
 
-	req, err := http.NewRequest(method, urlStr, bytes.NewBuffer(b))
-	if err != nil {
-		bucket.Release(nil)
-		return nil, err
-	}
-
-	// Not used on initial login..
-	// TODO: Verify if a login, otherwise complain about no-token
-	if s.Token != "" {
-		req.Header.Set("authorization", s.Token)
-	}
-
-	// Discord's API returns a 400 Bad Request is Content-Type is set, but the
-	// request body is empty.
-	if b != nil {
-		req.Header.Set("Content-Type", contentType)
-	}
-
-	// TODO: Make a configurable static variable.
-	req.Header.Set("User-Agent", s.UserAgent)
-
-	if s.Debug {
-		for k, v := range req.Header {
-			log.Printf("API REQUEST   HEADER :: [%s] = %+v\n", k, v)
+		req, err := http.NewRequest(method, urlStr, bytes.NewBuffer(b))
+		if err != nil {
+			bucket.Release(nil)
+			return nil, err
 		}
-	}
 
-	resp, err := s.Client.Do(req)
-	if err != nil {
-		bucket.Release(nil)
-		return nil, err
-	}
-	/* defer func() {
+		// Not used on initial login..
+		// TODO: Verify if a login, otherwise complain about no-token
+		if s.Token != "" {
+			req.Header.Set("authorization", s.Token)
+		}
+
+		// Discord's API returns a 400 Bad Request is Content-Type is set, but the
+		// request body is empty.
+		if b != nil {
+			req.Header.Set("Content-Type", contentType)
+		}
+
+		// TODO: Make a configurable static variable.
+		req.Header.Set("User-Agent", s.UserAgent)
+
+		if s.Debug {
+			for k, v := range req.Header {
+				log.Printf("API REQUEST   HEADER :: [%s] = %+v\n", k, v)
+			}
+		}
+
+		resp, err := s.Client.Do(req)
+		if err != nil {
+			bucket.Release(nil)
+			return nil, err
+		}
+		/* defer func() {
+			err2 := resp.Body.Close()
+			if err2 != nil {
+				log.Println("error closing resp body:", err2)
+			}
+		}() */
+
+		err = bucket.Release(resp.Header)
+		if err != nil {
+			err2 := resp.Body.Close()
+			if err2 != nil {
+				log.Println("error closing resp body:", err2)
+			}
+			return nil, err
+		}
+
+		response, err = ioutil.ReadAll(resp.Body)
 		err2 := resp.Body.Close()
 		if err2 != nil {
 			log.Println("error closing resp body:", err2)
 		}
-	}() */
-
-	err = bucket.Release(resp.Header)
-	if err != nil {
-		err2 := resp.Body.Close()
-		if err2 != nil {
-			log.Println("error closing resp body:", err2)
+		if err != nil {
+			return response, err
 		}
-		return nil, err
-	}
 
-	response, err = ioutil.ReadAll(resp.Body)
-	err2 := resp.Body.Close()
-	if err2 != nil {
-		log.Println("error closing resp body:", err2)
-	}
-	if err != nil {
-		return response, err
-	}
+		if s.Debug {
 
-	if s.Debug {
-
-		log.Printf("API RESPONSE  STATUS :: %s\n", resp.Status)
-		for k, v := range resp.Header {
-			log.Printf("API RESPONSE  HEADER :: [%s] = %+v\n", k, v)
+			log.Printf("API RESPONSE  STATUS :: %s\n", resp.Status)
+			for k, v := range resp.Header {
+				log.Printf("API RESPONSE  HEADER :: [%s] = %+v\n", k, v)
+			}
+			log.Printf("API RESPONSE    BODY :: [%s]\n\n\n", response)
 		}
-		log.Printf("API RESPONSE    BODY :: [%s]\n\n\n", response)
-	}
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-	case http.StatusCreated:
-	case http.StatusNoContent:
-	case http.StatusBadGateway:
-		// Retry sending request if possible
-		if sequence < s.MaxRestRetries {
+		switch resp.StatusCode {
+		case http.StatusOK:
+		case http.StatusCreated:
+		case http.StatusNoContent:
+		case http.StatusBadGateway:
+			// Retry sending request if possible
+			if sequence < s.MaxRestRetries {
 
-			s.log(LogInformational, "%s Failed (%s), Retrying...", urlStr, resp.Status)
-			sequence += 1
+				s.log(LogInformational, "%s Failed (%s), Retrying...", urlStr, resp.Status)
+				sequence += 1
+				s.Ratelimiter.LockBucketObject(bucket)
+				continue retry
+			} else {
+				err = fmt.Errorf("Exceeded Max retries HTTP %s, %s", resp.Status, response)
+			}
+		case 429: // TOO MANY REQUESTS - Rate limiting
+			rl := TooManyRequests{}
+			err = json.Unmarshal(response, &rl)
+			if err != nil {
+				s.log(LogError, "rate limit unmarshal error, %s", err)
+				// return
+			}
+
+			if rl.RetryAfter == 0 {
+				rl.RetryAfter = 1 * time.Second
+			}
+
+			//s.log(LogInformational, "Rate Limiting %s, retry in %v", urlStr, rl.RetryAfter)
+			s.handleEvent(rateLimitEventType, &RateLimit{TooManyRequests: &rl, URL: urlStr})
+
+			instructedRetryDelay = rl.RetryAfter
 			s.Ratelimiter.LockBucketObject(bucket)
 			continue retry
-		} else {
-			err = fmt.Errorf("Exceeded Max retries HTTP %s, %s", resp.Status, response)
-		}
-	case 429: // TOO MANY REQUESTS - Rate limiting
-		rl := TooManyRequests{}
-		err = json.Unmarshal(response, &rl)
-		if err != nil {
-			s.log(LogError, "rate limit unmarshal error, %s", err)
-			// return
-		}
-
-		if rl.RetryAfter == 0 {
-			rl.RetryAfter = 1 * time.Second
+		case http.StatusUnauthorized:
+			if strings.Index(s.Token, "Bot ") != 0 {
+				s.log(LogInformational, ErrUnauthorized.Error())
+				err = ErrUnauthorized
+			}
+			fallthrough
+		default: // Error condition
+			err = newRestError(req, resp, response)
 		}
 
-		//s.log(LogInformational, "Rate Limiting %s, retry in %v", urlStr, rl.RetryAfter)
-		s.handleEvent(rateLimitEventType, &RateLimit{TooManyRequests: &rl, URL: urlStr})
-
-		instructedRetryDelay = rl.RetryAfter
-		s.Ratelimiter.LockBucketObject(bucket)
-		continue retry
-	case http.StatusUnauthorized:
-		if strings.Index(s.Token, "Bot ") != 0 {
-			s.log(LogInformational, ErrUnauthorized.Error())
-			err = ErrUnauthorized
-		}
-		fallthrough
-	default: // Error condition
-		err = newRestError(req, resp, response)
-	}
-
-	return response, err
+		return response, err
 	}
 }
 
