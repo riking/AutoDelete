@@ -1,4 +1,5 @@
 FROM golang:latest
+ENV GO111MODULE=off
 
 RUN apt update -y --allow-insecure-repositories && apt upgrade -y && \ 
   apt install -y git && \
@@ -6,7 +7,7 @@ RUN apt update -y --allow-insecure-repositories && apt upgrade -y && \
   go get -u -v github.com/riking/AutoDelete/cmd/autodelete
 
 RUN mkdir -p /autodelete/data && \
-  cp "/go/src/github.com/riking/AutoDelete/docs/build.sh" /autodelete/
+  cp /go/src/github.com/riking/AutoDelete/docs/build.sh /autodelete/
 
 ENV HOME=/
 
