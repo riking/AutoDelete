@@ -1,0 +1,42 @@
+global:
+    scrape_interval: 60s
+    evaluation_interval: 60s
+
+rule_files: []
+
+scrape_configs:
+    - job_name: autodelete
+      static_configs:
+        - targets: ["127.0.0.4:6138"]
+          labels: {"shard": "8"}
+        - targets: ["127.0.0.4:6139"]
+          labels: {"shard": "9"}
+        - targets: ["127.0.0.4:6140"]
+          labels: {"shard": "10"}
+        - targets: ["127.0.0.4:6141"]
+          labels: {"shard": "11"}
+        - targets: ["127.0.0.4:6142"]
+          labels: {"shard": "12"}
+        - targets: ["127.0.0.4:6143"]
+          labels: {"shard": "13"}
+        - targets: ["127.0.0.4:6144"]
+          labels: {"shard": "14"}
+        - targets: ["127.0.0.4:6145"]
+          labels: {"shard": "15"}
+        - targets: ["127.0.0.4:6154"]
+          labels: {"shard": "24"}
+        - targets: ["127.0.0.4:6155"]
+          labels: {"shard": "25"}
+        - targets: ["127.0.0.4:6156"]
+          labels: {"shard": "26"}
+        - targets: ["127.0.0.4:6157"]
+          labels: {"shard": "27"}
+        - targets: ["127.0.0.4:6158"]
+          labels: {"shard": "28"}
+        - targets: ["127.0.0.4:6159"]
+          labels: {"shard": "29"}
+        - targets: ["127.0.0.4:6160"]
+          labels: {"shard": "30"}
+        - targets: ["127.0.0.4:6161"]
+          labels: {"shard": "31"}
+
