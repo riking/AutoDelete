@@ -1,17 +1,16 @@
-FROM golang:latest
+FROM golang:1.18 as build
 
-RUN apt update -y --allow-insecure-repositories && apt upgrade -y && \ 
-  apt install -y git && \
-  apt -y clean && \
-  go get -u -v github.com/riking/AutoDelete/cmd/autodelete
+WORKDIR /go/src/app
+COPY . .
 
-RUN mkdir -p /autodelete/data && \
-  cp "/go/src/github.com/riking/AutoDelete/docs/build.sh" /autodelete/
+ENV CGO_ENABLED=0
+RUN go build -o /autodelete -ldflags="-s -w" -v github.com/riking/AutoDelete/cmd/autodelete
+
+FROM gcr.io/distroless/static-debian11
+COPY --from=build /autodelete /autodelete
 
 ENV HOME=/
-
 EXPOSE 2202
+USER nonroot:nonroot
 
-WORKDIR /autodelete/
-
-ENTRYPOINT ./build.sh && ./autodelete
+ENTRYPOINT [ "/autodelete"]
