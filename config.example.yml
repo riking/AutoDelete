@@ -3,9 +3,9 @@ clientid:
 clientsecret:
 bottoken:
 adminuser:
+errorlog: ""
+backlog_limit: 200
 http:
   listen: "localhost:2202"
   public: "https://home.riking.org"
-backlog_limit: 200
-errorlog: ""
 statusmessage: "in the garbage"
