@@ -74,6 +74,7 @@ type Config struct {
 
 	BacklogLengthLimit int `yaml:"backlog_limit"`
 	DonorBacklogLimit  int `yaml:"backlog_limit_donor"`
+	IgnoreReconnectMessage int `yaml:"ignore_reconnect_message"`
 }
 
 type BansFile struct {
