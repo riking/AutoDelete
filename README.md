@@ -1,3 +1,15 @@
+# Hiatus, Unsupported Versions, Rate Limiting & Self Hosting
+
+The creator of this bot is on an extended break, with no ETA to return to this project.
+
+The below instructions are kept as a guide for existing installs. The share community version of the bot is rate limited. It sometimes works and sometimes doesn't.
+
+**Using the shared community version of this bot is no longer supported and not recommended.**
+
+Self-Hosting the bot (via Azure, AWS, Oracle Cloud, Docker instances) is provided via the Discord as a best effort process, but the underlying code is no longer being actively maintained. This message will be removed when this is no longer the case
+
+-- 15-JAN-2023
+
 # AutoDelete
 
 ### _retention policies for 'gamers'_
