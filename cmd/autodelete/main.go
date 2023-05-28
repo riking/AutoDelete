@@ -4,9 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/pprof"
-	rdebug "runtime/debug"
+	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,78 +17,98 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var flagShardID = flag.Int("shard", -1, "shard ID of this bot")
-var flagNoHttp = flag.Bool("nohttp", false, "skip http handler")
-var flagMetricsPort = flag.Int("metrics", 6130, "port for metrics listener; shard ID is added")
-var flagMetricsListen = flag.String("metricslisten", "127.0.0.4", "addr to listen on for metrics handler")
+const (
+	defaultConfigFile = "config.yml"
+)
+
+var (
+	flagShardID        = flag.Int("shard", -1, "shard ID of this bot")
+	flagNoHTTP         = flag.Bool("nohttp", false, "skip HTTP handler")
+	flagMetricsPort    = flag.Int("metrics", 6130, "port for metrics listener; shard ID is added")
+	flagMetricsListen  = flag.String("metricslisten", "127.0.0.4", "address to listen on for metrics handler")
+	flagConfigFile     = flag.String("config", defaultConfigFile, "configuration file path")
+)
 
 func main() {
-	var conf autodelete.Config
-
 	flag.Parse()
 
-	confBytes, err := ioutil.ReadFile("config.yml")
+	config, err := readConfig(*flagConfigFile)
 	if err != nil {
-		fmt.Println("Please copy config.yml.example to config.yml and fill out the values")
-		return
+		log.Fatalf("failed to read config file: %v", err)
 	}
-	err = yaml.Unmarshal(confBytes, &conf)
+
+	if config.BotToken == "" {
+		log.Fatal("bot token must be specified")
+	}
+
+	if config.Shards > 0 && *flagShardID == -1 {
+		log.Fatal("this AutoDelete instance is configured to be sharded; please specify --shard=n")
+	}
+
+	if *flagShardID > config.Shards {
+		log.Fatal("error: shard number is greater than shard count")
+	}
+
+	b := autodelete.New(config)
+
+	err = b.ConnectDiscord(*flagShardID, config.Shards)
 	if err != nil {
-		fmt.Println("yaml error:", err)
-		return
-	}
-	if conf.BotToken == "" {
-		fmt.Println("bot token must be specified")
-	}
-	if conf.Shards > 0 && *flagShardID == -1 {
-		fmt.Println("This AutoDelete instance is configured to be sharded; please specify --shard=n")
-		return
-	}
-	if *flagShardID > conf.Shards {
-		fmt.Println("error: shard nbr is > shard count")
-		return
+		log.Fatalf("failed to connect to Discord: %v", err)
 	}
 
-	b := autodelete.New(conf)
+	go periodicallyFreeOSMemory()
 
-	err = b.ConnectDiscord(*flagShardID, conf.Shards)
-	if err != nil {
-		fmt.Println("connect error:", err)
-		return
-	}
+	if !*flagNoHTTP {
+		go startMetricServer(*flagMetricsListen, *flagMetricsPort+*flagShardID)
+		go startHTTPServer(config.HTTP.Listen, b)
 
-	var privHttp http.ServeMux
-	var pubHttp http.ServeMux
-
-	go func() {
-		for {
-			time.Sleep(time.Hour * 1)
-			rdebug.FreeOSMemory()
-		}
-	}()
-	go func() {
-		privHttp.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-		privHttp.Handle("/metrics", promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{}))
-		metricSvr := &http.Server{
-			Handler: &privHttp,
-			Addr:    fmt.Sprintf("%s:%d", *flagMetricsListen, *flagMetricsPort+*flagShardID),
-		}
-
-		err := metricSvr.ListenAndServe()
-		fmt.Println("exiting metric server", err)
-	}()
-
-	if !*flagNoHttp {
-		fmt.Printf("url: %s%s\n", conf.HTTP.Public, "/discord_auto_delete/oauth/start")
-		pubHttp.HandleFunc("/discord_auto_delete/oauth/start", b.HTTPOAuthStart)
-		pubHttp.HandleFunc("/discord_auto_delete/oauth/callback", b.HTTPOAuthCallback)
-		pubSrv := &http.Server{
-			Handler: &pubHttp,
-			Addr:    conf.HTTP.Listen,
-		}
-		err = pubSrv.ListenAndServe()
-		fmt.Println("exiting main()", err)
+		fmt.Printf("URL: %s%s\n", config.HTTP.Public, "/discord_auto_delete/oauth/start")
 	} else {
 		select {}
 	}
 }
+
+func readConfig(filePath string) (autodelete.Config, error) {
+	var config autodelete.Config
+
+	configBytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return config, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	err = yaml.Unmarshal(configBytes, &config)
+	if err != nil {
+		return config, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	return config, nil
+}
+
+func periodicallyFreeOSMemory() {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		debug.FreeOSMemory()
+	}
+}
+
+func startMetricServer(listenAddress string, port int) {
+	mux := http.NewServeMux()
+	mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+	mux.Handle("/metrics", promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{}))
+
+	addr := fmt.Sprintf("%s:%d", listenAddress, port)
+	metricServer := &http.Server{
+		Handler: mux,
+		Addr:    addr,
+	}
+
+	err := metricServer.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		log.Printf("failed to start metric server: %v", err)
+		os.Exit(1)
+	}
+}
+
+func startHTTPServer
