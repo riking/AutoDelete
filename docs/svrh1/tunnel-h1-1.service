@@ -1,0 +1,11 @@
+[Unit]
+Description=port tunnel between the servers to enable prometheus
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/autossh 100.114.223.55 -o User=autodelete -i /root/.ssh/id_hz_ed25519 -R 4005:localhost:4005 -o ServerAliveInterval=20 ServerAliveCountMax=6 -N -T
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

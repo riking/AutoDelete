@@ -11,8 +11,8 @@ scrape_configs:
           labels: {"shard": "0"}
         - targets: ["127.0.0.4:6131"]
           labels: {"shard": "1"}
-        - targets: ["127.0.0.4:6132"]
-          labels: {"shard": "2"}
-        - targets: ["127.0.0.4:6133"]
-          labels: {"shard": "3"}
+        - targets: ["127.0.0.4:6146"]
+          labels: {"shard": "16"}
+        - targets: ["127.0.0.4:6147"]
+          labels: {"shard": "17"}
 

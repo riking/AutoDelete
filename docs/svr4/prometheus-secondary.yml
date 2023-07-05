@@ -1,0 +1,22 @@
+global:
+    scrape_interval: 60s
+    evaluation_interval: 60s
+
+rule_files: []
+
+scrape_configs:
+    - job_name: autodelete
+      static_configs:
+        - targets: ["127.0.0.4:6135"]
+          labels: {"shard": "5"}
+        - targets: ["127.0.0.4:6136"]
+          labels: {"shard": "6"}
+        - targets: ["127.0.0.4:6137"]
+          labels: {"shard": "7"}
+        - targets: ["127.0.0.4:6151"]
+          labels: {"shard": "21"}
+        - targets: ["127.0.0.4:6152"]
+          labels: {"shard": "22"}
+        - targets: ["127.0.0.4:6153"]
+          labels: {"shard": "23"}
+

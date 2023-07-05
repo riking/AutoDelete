@@ -45,12 +45,27 @@ type resumePacket struct {
 	} `json:"d"`
 }
 
+// maximum 1000 connects per hour
+const websocketConnectWait = time.Hour / 1000 * 22 /*s.ShardCount*/
+var connectPermission = make(chan struct{}, 1)
+
+func init() {
+	go func() {
+		for {
+			connectPermission <- struct{}{}
+			time.Sleep(websocketConnectWait)
+		}
+	}()
+}
+
 // Open creates a websocket connection to Discord.
 // See: https://discord.com/developers/docs/topics/gateway#connecting
 func (s *Session) Open() error {
 	s.log(LogInformational, "called")
 
 	var err error
+
+	<-connectPermission
 
 	// Prevent Open or other major Session functions from
 	// being called while Open is still running.
