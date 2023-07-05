@@ -72,9 +72,9 @@ type Config struct {
 	// discord role IDs
 	DonorRoleIDs []string `yaml:"donor_roles"`
 
-	BacklogLengthLimit int `yaml:"backlog_limit"`
-	DonorBacklogLimit  int `yaml:"backlog_limit_donor"`
-	IgnoreReconnectMessage int `yaml:"ignore_reconnect_message"`
+	BacklogLengthLimit     int  `yaml:"backlog_limit"`
+	DonorBacklogLimit      int  `yaml:"backlog_limit_donor"`
+	IgnoreReconnectMessage bool `yaml:"ignore_reconnect_message"`
 }
 
 type BansFile struct {
