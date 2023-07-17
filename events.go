@@ -244,10 +244,12 @@ func (b *Bot) OnResume(s *discordgo.Session, r *discordgo.Resumed) {
 	// force ratelimit of reconnects?
 	_, _ = s.User("@me")
 
-	if r.Trace != nil {
-		b.ReportToLogChannel(fmt.Sprintf("AutoDelete successfully reconnected (%d/%d) with trace data.\n%s", b.s.ShardID, b.s.ShardCount, strings.Join(r.Trace, "\n")))
-	} else {
-		b.ReportToLogChannel(fmt.Sprintf("AutoDelete successfully reconnected (%d/%d).", b.s.ShardID, b.s.ShardCount))
+	if !b.Config.IgnoreReconnectMessage {
+		if r.Trace != nil {
+			b.ReportToLogChannel(fmt.Sprintf("AutoDelete successfully reconnected (%d/%d) with trace data.\n%s", b.s.ShardID, b.s.ShardCount, strings.Join(r.Trace, "\n")))
+		} else {
+			b.ReportToLogChannel(fmt.Sprintf("AutoDelete successfully reconnected (%d/%d).", b.s.ShardID, b.s.ShardCount))
+		}
 	}
 	go func() {
 		time.Sleep(3 * time.Second)
