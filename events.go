@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const userAgent = "AutoDelete (https://github.com/riking/AutoDelete, v1.4)"
+const userAgent = "AutoDelete (https://github.com/Skesov/AutoDelete, v1.4)"
 
 type userAgentSetter struct {
 	t http.RoundTripper
@@ -41,8 +41,8 @@ func (b *Bot) ConnectDiscord(shardID, shardCount int) error {
 
 	s.Identify.Compress = true
 	s.Identify.Properties.OS = runtime.GOOS
-	s.Identify.Properties.Browser = "github.com/riking/AutoDelete"
-	s.Identify.Properties.Device = "github.com/riking/AutoDelete"
+	s.Identify.Properties.Browser = "github.com/Skesov/AutoDelete"
+	s.Identify.Properties.Device = "github.com/Skesov/AutoDelete"
 	if b.Config.StatusMessage != nil {
 		s.Identify.Presence.Game.Name = *b.Config.StatusMessage
 		s.Identify.Presence.Game.Type = discordgo.ActivityTypeGame

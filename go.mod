@@ -1,6 +1,6 @@
-module github.com/riking/AutoDelete
+module github.com/Skesov/AutoDelete
 
-go 1.13
+go 1.21.1
 
 require (
 	github.com/bwmarrin/discordgo v0.24.0

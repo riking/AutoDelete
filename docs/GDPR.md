@@ -6,7 +6,7 @@
     - Proof that the requester has sufficient authority over the guild
 
     Use the identify_guilds script to check whether the requester has authority:
-    `go run ~/go/src/github.com/riking/AutoDelete/cmd/identify_guilds.go -printroles $guildid`
+    `go run ~/go/src/github.com/Skesov/AutoDelete/cmd/identify_guilds.go -printroles $guildid`
 
  2. Pull all configuration .yml files from data/ in the bot storage directory for the identified guild:
 

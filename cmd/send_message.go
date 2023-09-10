@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"os"
 
+	autodelete "github.com/Skesov/AutoDelete"
 	"github.com/bwmarrin/discordgo"
-	autodelete "github.com/riking/AutoDelete"
 	"gopkg.in/yaml.v2"
 )
 
@@ -21,7 +21,7 @@ func main() {
 
 	flag.Parse()
 
-	confBytes, err := ioutil.ReadFile("config.yml")
+	confBytes, err := os.ReadFile("config.yml")
 	if err != nil {
 		fmt.Println("Please copy config.yml.example to config.yml and fill out the values")
 		return
@@ -46,7 +46,7 @@ func main() {
 		return
 	}
 
-	messageBytes, err := ioutil.ReadFile(*flagMessageFile)
+	messageBytes, err := os.ReadFile(*flagMessageFile)
 	if err != nil {
 		fmt.Println("could not read message file:", err)
 		return
