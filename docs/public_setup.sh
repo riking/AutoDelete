@@ -30,8 +30,8 @@ logout
 # ssh autodelete@
 
 mkdir discord
-mkdir -p go/src/github.com/riking/
-cd go/src/github.com/riking; git clone https://github.com/Skesov/AutoDelete
+mkdir -p go/src/github.com/Skesov/
+cd go/src/github.com/Skesov; git clone https://github.com/Skesov/AutoDelete
 cd ~/discord
 REPO=$HOME/go/src/github.com/Skesov/AutoDelete
 cp $REPO/docs/build.sh .

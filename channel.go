@@ -1,6 +1,7 @@
-package autodelete
+package main
 
 import (
+	"AutoDelete/topk"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -11,7 +12,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/prometheus/client_golang/prometheus"
 
-	topk "github.com/Skesov/AutoDelete/go-prometheus-topk"
 )
 
 const minTimeBetweenDeletion = time.Second * 5

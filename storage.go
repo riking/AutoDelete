@@ -1,4 +1,4 @@
-package autodelete
+package main
 
 import (
 	"fmt"

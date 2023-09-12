@@ -1,13 +1,13 @@
-package main
+package cmd
 
 import (
+	"AutoDelete"
 	"flag"
 	"fmt"
 	"os"
 	"sort"
 	"strconv"
 
-	autodelete "github.com/Skesov/AutoDelete"
 	"github.com/bwmarrin/discordgo"
 	"gopkg.in/yaml.v2"
 )
@@ -16,7 +16,7 @@ var flagShardCount = flag.Int("shards", 4, "number of shards")
 var flagPrintRoles = flag.Bool("printroles", false, "print server roles")
 
 func main() {
-	var conf autodelete.Config
+	var conf AutoDelete.Config
 
 	flag.Parse()
 

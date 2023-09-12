@@ -1,6 +1,7 @@
 package autodelete
 
 import (
+	"AutoDelete"
 	"flag"
 	"fmt"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	rdebug "runtime/debug"
 	"time"
 
-	autodelete "github.com/Skesov/AutoDelete"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v2"
@@ -21,7 +21,7 @@ var flagMetricsPort = flag.Int("metrics", 6130, "port for metrics listener; shar
 var flagMetricsListen = flag.String("metricslisten", "127.0.0.4", "addr to listen on for metrics handler")
 
 func main() {
-	var conf autodelete.Config
+	var conf AutoDelete.Config
 
 	flag.Parse()
 
@@ -47,7 +47,7 @@ func main() {
 		return
 	}
 
-	b := autodelete.New(conf)
+	b := AutoDelete.New(conf)
 
 	err = b.ConnectDiscord(*flagShardID, conf.Shards)
 	if err != nil {

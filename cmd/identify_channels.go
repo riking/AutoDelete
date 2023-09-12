@@ -1,12 +1,12 @@
-package main
+package cmd
 
 import (
+	"AutoDelete"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
 
-	autodelete "github.com/Skesov/AutoDelete"
 	"github.com/bwmarrin/discordgo"
 	"gopkg.in/yaml.v2"
 )
@@ -15,7 +15,7 @@ var flagPrintMessages = flag.Bool("messages", false, "print recent messages")
 var flagUnconfiguredChannels = flag.Bool("all", false, "print channels that are not configured, too")
 
 func main() {
-	var conf autodelete.Config
+	var conf AutoDelete.Config
 
 	flag.Parse()
 

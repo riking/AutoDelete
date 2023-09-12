@@ -1,11 +1,11 @@
-package main
+package cmd
 
 import (
+	"AutoDelete"
 	"flag"
 	"fmt"
 	"os"
 
-	autodelete "github.com/Skesov/AutoDelete"
 	"github.com/bwmarrin/discordgo"
 	"gopkg.in/yaml.v2"
 )
@@ -17,8 +17,7 @@ var messageContent = `[A message from the developer]
 Reason: %s`
 
 func main() {
-	var conf autodelete.Config
-
+	var conf AutoDelete.Config
 	flag.Parse()
 
 	confBytes, err := os.ReadFile("config.yml")

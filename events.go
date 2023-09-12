@@ -1,4 +1,4 @@
-package autodelete
+package main
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const userAgent = "AutoDelete (https://github.com/Skesov/AutoDelete, v1.4)"
+const userAgent = "AutoDelete (https://github.com/Skesov/AutoDelete, v2.0)"
 
 type userAgentSetter struct {
 	t http.RoundTripper

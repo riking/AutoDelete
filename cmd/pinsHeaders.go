@@ -1,12 +1,12 @@
-package main
+package cmd
 
 import (
+	"AutoDelete"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 
-	autodelete "github.com/Skesov/AutoDelete"
 	"github.com/bwmarrin/discordgo"
 	"gopkg.in/yaml.v2"
 )
@@ -26,7 +26,7 @@ func (l *loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 }
 
 func main() {
-	var conf autodelete.Config
+	var conf AutoDelete.Config
 
 	flag.Parse()
 	if flag.NArg() == 0 {

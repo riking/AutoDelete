@@ -1,0 +1,12 @@
+//go:build amd64 && !noasm && !tinygo
+// +build amd64,!noasm,!tinygo
+
+package sip13
+
+//go:generate go run _avo/asm.go -out sip13_amd64.s
+//go:noescape
+
+func Sum64(k0, k1 uint64, p []byte) uint64
+
+//go:noescape
+func Sum64Str(k0, k1 uint64, p string) uint64

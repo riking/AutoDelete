@@ -120,9 +120,9 @@ func (v *VoiceConnection) ChangeChannel(channelID string, mute, deaf bool) (err 
 	v.log(LogInformational, "called")
 
 	data := voiceChannelJoinOp{4, voiceChannelJoinData{&v.GuildID, &channelID, mute, deaf}}
-	v.wsMutex.Lock()
+	v.session.wsMutex.Lock()
 	err = v.session.wsConn.WriteJSON(data)
-	v.wsMutex.Unlock()
+	v.session.wsMutex.Unlock()
 	if err != nil {
 		return
 	}
@@ -304,7 +304,7 @@ func (v *VoiceConnection) open() (err error) {
 	// Connect to VoiceConnection Websocket
 	vg := "wss://" + strings.TrimSuffix(v.endpoint, ":80")
 	v.log(LogInformational, "connecting to voice endpoint %s", vg)
-	v.wsConn, _, err = websocket.DefaultDialer.Dial(vg, nil)
+	v.wsConn, _, err = v.session.Dialer.Dial(vg, nil)
 	if err != nil {
 		v.log(LogWarning, "error connecting to voice endpoint %s, %s", vg, err)
 		v.log(LogDebug, "voice struct: %#v\n", v)
@@ -323,7 +323,9 @@ func (v *VoiceConnection) open() (err error) {
 	}
 	data := voiceHandshakeOp{0, voiceHandshakeData{v.GuildID, v.UserID, v.sessionID, v.token}}
 
+	v.wsMutex.Lock()
 	err = v.wsConn.WriteJSON(data)
+	v.wsMutex.Unlock()
 	if err != nil {
 		v.log(LogWarning, "error sending init packet, %s", err)
 		return
@@ -357,6 +359,25 @@ func (v *VoiceConnection) wsListen(wsConn *websocket.Conn, close <-chan struct{}
 				v.Lock()
 				v.wsConn = nil
 				v.Unlock()
+
+				// Wait for VOICE_SERVER_UPDATE.
+				// When the bot is moved by the user to another voice channel,
+				// VOICE_SERVER_UPDATE is received after the code 4014.
+				for i := 0; i < 5; i++ { // TODO: temp, wait for VoiceServerUpdate.
+					<-time.After(1 * time.Second)
+
+					v.RLock()
+					reconnected := v.wsConn != nil
+					v.RUnlock()
+					if !reconnected {
+						continue
+					}
+					v.log(LogInformational, "successfully reconnected after 4014 manual disconnection")
+					return
+				}
+
+				// When VOICE_SERVER_UPDATE is not received, disconnect as usual.
+				v.log(LogInformational, "disconnect due to 4014 manual disconnection")
 
 				v.session.Lock()
 				delete(v.session.VoiceConnections, v.GuildID)
@@ -578,44 +599,46 @@ func (v *VoiceConnection) udpOpen() (err error) {
 		return
 	}
 
-	// Create a 70 byte array and put the SSRC code from the Op 2 VoiceConnection event
-	// into it.  Then send that over the UDP connection to Discord
-	sb := make([]byte, 70)
-	binary.BigEndian.PutUint32(sb, v.op2.SSRC)
+	// Create a 74 byte array to store the packet data
+	sb := make([]byte, 74)
+	binary.BigEndian.PutUint16(sb, 1)              // Packet type (0x1 is request, 0x2 is response)
+	binary.BigEndian.PutUint16(sb[2:], 70)         // Packet length (excluding type and length fields)
+	binary.BigEndian.PutUint32(sb[4:], v.op2.SSRC) // The SSRC code from the Op 2 VoiceConnection event
+
+	// And send that data over the UDP connection to Discord.
 	_, err = v.udpConn.Write(sb)
 	if err != nil {
 		v.log(LogWarning, "udp write error to %s, %s", addr.String(), err)
 		return
 	}
 
-	// Create a 70 byte array and listen for the initial handshake response
+	// Create a 74 byte array and listen for the initial handshake response
 	// from Discord.  Once we get it parse the IP and PORT information out
 	// of the response.  This should be our public IP and PORT as Discord
 	// saw us.
-	rb := make([]byte, 70)
+	rb := make([]byte, 74)
 	rlen, _, err := v.udpConn.ReadFromUDP(rb)
 	if err != nil {
 		v.log(LogWarning, "udp read error, %s, %s", addr.String(), err)
 		return
 	}
 
-	if rlen < 70 {
+	if rlen < 74 {
 		v.log(LogWarning, "received udp packet too small")
 		return fmt.Errorf("received udp packet too small")
 	}
 
-	// Loop over position 4 through 20 to grab the IP address
-	// Should never be beyond position 20.
+	// Loop over position 8 through 71 to grab the IP address.
 	var ip string
-	for i := 4; i < 20; i++ {
+	for i := 8; i < len(rb)-2; i++ {
 		if rb[i] == 0 {
 			break
 		}
 		ip += string(rb[i])
 	}
 
-	// Grab port from position 68 and 69
-	port := binary.BigEndian.Uint16(rb[68:70])
+	// Grab port from position 72 and 73
+	port := binary.BigEndian.Uint16(rb[len(rb)-2:])
 
 	// Take the data from above and send it back to Discord to finalize
 	// the UDP connection handshake.
@@ -829,11 +852,22 @@ func (v *VoiceConnection) opusReceiver(udpConn *net.UDPConn, close <-chan struct
 		p.SSRC = binary.BigEndian.Uint32(recvbuf[8:12])
 		// decrypt opus data
 		copy(nonce[:], recvbuf[0:12])
-		p.Opus, _ = secretbox.Open(nil, recvbuf[12:rlen], &nonce, &v.op4.SecretKey)
 
-		if len(p.Opus) > 8 && recvbuf[0] == 0x90 {
-			// Extension bit is set, first 8 bytes is the extended header
-			p.Opus = p.Opus[8:]
+		if opus, ok := secretbox.Open(nil, recvbuf[12:rlen], &nonce, &v.op4.SecretKey); ok {
+			p.Opus = opus
+		} else {
+			continue
+		}
+
+		// extension bit set, and not a RTCP packet
+		if ((recvbuf[0] & 0x10) == 0x10) && ((recvbuf[1] & 0x80) == 0) {
+			// get extended header length
+			extlen := binary.BigEndian.Uint16(p.Opus[2:4])
+			// 4 bytes (ext header header) + 4*extlen (ext header data)
+			shift := int(4 + 4*extlen)
+			if len(p.Opus) > shift {
+				p.Opus = p.Opus[shift:]
+			}
 		}
 
 		if c != nil {
@@ -864,7 +898,11 @@ func (v *VoiceConnection) reconnect() {
 	v.reconnecting = true
 	v.Unlock()
 
-	defer func() { v.reconnecting = false }()
+	defer func() {
+		v.Lock()
+		v.reconnecting = false
+		v.Unlock()
+	}()
 
 	// Close any currently open connections
 	v.Close()
