@@ -6,7 +6,7 @@ WORKDIR /autodelete/
 
 COPY . .
 
-RUN mkdir -p output/ && go build -ldflags="-s -w" -v -o output/autodelete .
+RUN mkdir -p output/ && go build -ldflags="-s -w" -v -o /autodelete/output/autodelete .
 
 FROM base as executer
 
@@ -16,4 +16,4 @@ RUN chmod +x ./autodelete
 
 EXPOSE 2202
 
-ENTRYPOINT ./autodelete
+RUN ./autodelete

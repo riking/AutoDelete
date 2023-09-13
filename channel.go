@@ -551,7 +551,6 @@ func (c *ManagedChannel) GetNextDeletionTime() (deadline time.Time) {
 	}()
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
 	for len(c.liveMessages) > 0 {
 		// Recheck keepLookup
 		if c.keepLookup[c.liveMessages[0].MessageID] {
@@ -561,7 +560,7 @@ func (c *ManagedChannel) GetNextDeletionTime() (deadline time.Time) {
 		break
 	}
 	if len(c.liveMessages) == 0 {
-		return time.Now().Add(240 * time.Hour)
+		return time.Now().Add(12 * time.Hour)
 	}
 
 	if c.MaxMessages > 0 && len(c.liveMessages) > c.MaxMessages {
@@ -578,7 +577,7 @@ func (c *ManagedChannel) GetNextDeletionTime() (deadline time.Time) {
 		}
 		return ts
 	}
-	return time.Now().Add(240 * time.Hour)
+	return time.Now().Add(12 * time.Hour)
 }
 
 const errCodeBulkDeleteOld = 50034

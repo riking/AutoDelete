@@ -106,9 +106,11 @@ func internalMigrateConfig(c ManagedChannelMarshal) ManagedChannelMarshal {
 }
 
 func (b *Bot) ReportToLogChannel(msg string) {
-	_, err := b.s.ChannelMessageSend(b.Config.ErrorLogCh, msg)
-	if err != nil {
-		fmt.Println("error while reporting to error log:", err)
+	if b.Config.ErrorLogCh != "" {
+		_, err := b.s.ChannelMessageSend(b.Config.ErrorLogCh, msg)
+		if err != nil {
+			fmt.Println("error while reporting to error log:", err)
+		}
 	}
 	fmt.Println("[LOG]", msg)
 }

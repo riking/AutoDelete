@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
@@ -35,7 +35,7 @@ const pathChannelConfig = "./data/%s.yml"
 const pathBanList = "./data/bans.yml"
 
 func (s *DiskStorage) ListChannels() ([]string, error) {
-	files, err := ioutil.ReadDir(pathChannelConfDir)
+	files, err := os.ReadDir(pathChannelConfDir)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (s *DiskStorage) GetChannel(channelID string) (ManagedChannelMarshal, error
 	} else if err != nil {
 		return conf, err
 	}
-	by, err := ioutil.ReadAll(f)
+	by, err := io.ReadAll(f)
 	f.Close()
 	if err != nil {
 		return conf, err
@@ -105,7 +105,7 @@ func (s *DiskStorage) DeleteChannel(id string) error {
 }
 
 func (s *DiskStorage) IsBanned(guildID string) (bool, error) {
-	by, err := ioutil.ReadFile(pathBanList)
+	by, err := os.ReadFile(pathBanList)
 	if os.IsNotExist(err) {
 		return false, nil
 	} else if err != nil {

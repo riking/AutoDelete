@@ -244,7 +244,6 @@ func (c reapqCollector) Collect(ch chan<- prometheus.Metric) {
 // Update adds or inserts the expiry time for the given item in the queue.
 func (q *reapQueue) Update(ch *ManagedChannel, t time.Time) {
 	mReapqUpdate.WithLabelValues(q.label).Inc()
-
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
@@ -277,10 +276,11 @@ start:
 		q.cond.Wait()
 		goto start
 	}
+
 	now := time.Now()
 	if it.nextReap.After(now) {
 		waitTime := it.nextReap.Sub(now)
-		fmt.Println("[reap] sleeping for ", waitTime-(waitTime%time.Second))
+		fmt.Printf("[reap] sleeping for %v\n", waitTime-(waitTime%time.Second))
 		q.timer.Reset(waitTime + 2*time.Millisecond)
 		q.cond.Wait()
 		actualWait := time.Now().Sub(now)

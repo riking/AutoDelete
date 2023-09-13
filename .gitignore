@@ -1,3 +1,4 @@
 config.ini
 config.yml
 AutoDelete
+data/*.yml
