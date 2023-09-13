@@ -1,7 +1,6 @@
-package autodelete
+package main
 
 import (
-	"AutoDelete"
 	"flag"
 	"fmt"
 	"net/http"
@@ -21,7 +20,7 @@ var flagMetricsPort = flag.Int("metrics", 6130, "port for metrics listener; shar
 var flagMetricsListen = flag.String("metricslisten", "127.0.0.4", "addr to listen on for metrics handler")
 
 func main() {
-	var conf AutoDelete.Config
+	var conf Config
 
 	flag.Parse()
 
@@ -47,7 +46,7 @@ func main() {
 		return
 	}
 
-	b := AutoDelete.New(conf)
+	b := New(conf)
 
 	err = b.ConnectDiscord(*flagShardID, conf.Shards)
 	if err != nil {

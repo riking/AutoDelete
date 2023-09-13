@@ -261,7 +261,7 @@ func CommandModify(b *Bot, m *discordgo.Message, rest []string) {
 		KeepMessages: []string{confMessage.ID},
 		LiveTime:     duration,
 		MaxMessages:  count,
-		HasPins:      channel.LastPinTimestamp != "",
+		HasPins:      channel.LastPinTimestamp != nil,
 		IsDonor:      isDonor,
 	}
 

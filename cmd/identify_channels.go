@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"AutoDelete"
 	"flag"
 	"fmt"
 	"os"
@@ -119,14 +118,14 @@ func fetchRoles(s *discordgo.Session, g *discordgo.Guild) {
 
 func printInterestingPermissions(s *discordgo.Session, g *discordgo.Guild, perm *discordgo.PermissionOverwrite) {
 	switch perm.Type {
-	case "member":
+	case 1:
 		user, err := s.User(perm.ID)
 		if err == nil {
 			fmt.Printf("   user %s (%s): perms +%x -%x\n", user, perm.ID, perm.Allow, perm.Deny)
 		} else {
 			fmt.Printf("   user %s (err %v): perms +%x -%x\n", perm.ID, err, perm.Allow, perm.Deny)
 		}
-	case "role":
+	case 0:
 		role, ok := roleMap[perm.ID]
 		if ok {
 			fmt.Printf("   role %s (%s): perms +%x -%x\n", role.Name, perm.ID, perm.Allow, perm.Deny)

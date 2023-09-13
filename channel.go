@@ -1,7 +1,6 @@
 package main
 
 import (
-	"AutoDelete/topk"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -9,9 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/skesov/AutoDelete/topk"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/prometheus/client_golang/prometheus"
-
 )
 
 const minTimeBetweenDeletion = time.Second * 5
@@ -245,7 +245,7 @@ func (c *ManagedChannel) loadPins() ([]*discordgo.Message, error) {
 		return nil, err
 	}
 
-	if disCh.LastPinTimestamp == "" {
+	if disCh.LastPinTimestamp == nil {
 		return nil, nil
 	}
 
@@ -391,10 +391,7 @@ func (c *ManagedChannel) mergeBacklog(msgs []*discordgo.Message) {
 			continue
 		}
 
-		ts, err := v.Timestamp.Parse()
-		if err != nil {
-			panic("Timestamp format change")
-		}
+		ts := v.Timestamp
 		if ts.IsZero() {
 			continue
 		}

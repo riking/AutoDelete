@@ -222,12 +222,18 @@ func (b *Bot) OnChannelPins(s *discordgo.Session, ev *discordgo.ChannelPinsUpdat
 	}
 
 	if ev.LastPinTimestamp == "" {
-		disCh.LastPinTimestamp = ""
+		disCh.LastPinTimestamp = nil
 	} else {
-		disCh.LastPinTimestamp = discordgo.Timestamp(ev.LastPinTimestamp)
+		disCh.LastPinTimestamp = getTimestamp(ev.LastPinTimestamp)
 	}
 	fmt.Printf("[pins] got pins update for %s - new lpts %s\n", mCh, ev.LastPinTimestamp)
 	mCh.UpdatePins(ev.LastPinTimestamp)
+}
+
+func getTimestamp(lastPinTimestamp string) *time.Time {
+	var t = time.Time{}
+	t, _ = time.Parse(time.RFC3339, string(lastPinTimestamp))
+	return &t
 }
 
 func (b *Bot) OnReady(s *discordgo.Session, m *discordgo.Ready) {

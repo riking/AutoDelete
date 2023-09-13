@@ -1,4 +1,4 @@
-module AutoDelete
+module github.com/skesov/AutoDelete
 
 go 1.21.1
 
