@@ -10,6 +10,8 @@ RUN mkdir -p output/ && go build -ldflags="-s -w" -v -o /autodelete/output/autod
 
 FROM base as executer
 
+WORKDIR /autodelete/
+
 COPY --from=builder /autodelete/output/autodelete ./autodelete
 
 RUN chmod +x ./autodelete
