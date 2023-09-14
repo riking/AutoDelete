@@ -5,7 +5,7 @@ bottoken:
 adminuser:
 http:
   listen: "localhost:2202"
-  public: "https://nothing.skesov.com"
+  public: "https://localhost:2202"
 backlog_limit: 200
 errorlog: ""
 statusmessage: "in the garbage"

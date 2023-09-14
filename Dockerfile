@@ -1,6 +1,4 @@
-FROM golang:1.21.1-alpine3.18 as base
-
-FROM base as builder 
+FROM golang:1.21.1-alpine3.18 as builder 
 
 WORKDIR /autodelete/
 
@@ -8,7 +6,7 @@ COPY . .
 
 RUN mkdir -p output/ && go build -ldflags="-s -w" -v -o /autodelete/output/autodelete .
 
-FROM base as executer
+FROM alpine:3.18 as executer
 
 WORKDIR /autodelete/
 
